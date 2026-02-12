@@ -1,5 +1,6 @@
 import { Socket } from 'node:net';
-import { Observable, fromEvent } from 'rxjs';
+import { Observable, fromEvent, merge } from 'rxjs';
+import { map, take } from 'rxjs/operators';
 import { Context } from '../../app';
 import { Client } from '../../client';
 
@@ -11,7 +12,7 @@ export class TcpClient extends Client {
     super(ctx);
   }
 
-  _send(data: Buffer): Promise<void> {
+  protected _send(data: Buffer): Promise<void> {
     return new Promise((resolve, reject) => {
       this.sock.write(data, (error) => {
         if (error) {
@@ -23,13 +24,13 @@ export class TcpClient extends Client {
     });
   }
 
-  _receive(): Observable<Buffer> {
+  protected _receive(): Observable<Buffer> {
     return fromEvent<Buffer>(this.sock, 'data');
   }
 
-  disconnect(): Promise<void> {
+  protected async _disconnect(): Promise<void> {
     if (this.sock.destroyed) {
-      return Promise.resolve();
+      return;
     }
     return new Promise((resolve) => {
       this.sock.once('close', () => resolve());
@@ -37,8 +38,11 @@ export class TcpClient extends Client {
     });
   }
 
-  onDisconnect(): Observable<void> {
-    return fromEvent<void>(this.sock, 'close');
+  protected _onDisconnect(): Observable<void> {
+    return merge(
+      fromEvent<void>(this.sock, 'close'),
+      fromEvent<Error>(this.sock, 'error').pipe(map(() => undefined)),
+    ).pipe(take(1));
   }
 
   physicalIp(): string {

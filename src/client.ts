@@ -1,11 +1,13 @@
 import {
   filter,
   firstValueFrom,
+  merge,
   Observable,
   Subject,
   timeout,
   TimeoutError,
 } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { Context } from './app';
 import {
   YGOProCtos,
@@ -18,28 +20,49 @@ import {
 import { YGOProProtoPipe } from './utility/ygopro-proto-pipe';
 import { ClassType } from 'nfkit';
 import { I18nService } from './services/i18n';
+import { Chnroute } from './services/chnroute';
 
 export abstract class Client {
   protected abstract _send(data: Buffer): Promise<void>;
   protected abstract _receive(): Observable<Buffer<ArrayBufferLike>>;
-  abstract disconnect(): Promise<void>;
-  abstract onDisconnect(): Observable<void>;
+  protected abstract _disconnect(): Promise<void>;
+  protected abstract _onDisconnect(): Observable<void>;
   abstract physicalIp(): string;
 
   ip = '';
   isLocal = false;
 
-  private logger = this.ctx.createLogger(`Client ${this.physicalIp()}`);
+  private logger = this.ctx.createLogger(this.constructor.name);
   private receiveSubject?: Subject<YGOProCtosBase>;
+  private disconnectSubject = new Subject<void>();
+  private manuallyDisconnected = false;
 
-  constructor(protected ctx: Context) {
-    // Subscribe to disconnect event to clean up subject
+  constructor(protected ctx: Context) {}
+
+  init() {
     this.onDisconnect().subscribe(() => {
       if (this.receiveSubject) {
         this.receiveSubject.complete();
         this.receiveSubject = undefined;
       }
     });
+  }
+
+  async disconnect(): Promise<void> {
+    this.manuallyDisconnected = true;
+    this.disconnectSubject.next();
+    this.disconnectSubject.complete();
+    await this._disconnect();
+  }
+
+  onDisconnect(): Observable<void> {
+    if (this.manuallyDisconnected) {
+      return this.disconnectSubject.asObservable();
+    }
+    return merge(
+      this.disconnectSubject.asObservable(),
+      this._onDisconnect(),
+    ).pipe(take(1));
   }
 
   async send(data: YGOProStocBase) {
@@ -53,16 +76,18 @@ export abstract class Client {
     }
   }
 
-  async sendChat(msg: string, type: number) {
+  async sendChat(msg: string, type = ChatColor.BABYBLUE) {
     return this.send(
       new YGOProStocChat().fromPartial({
-        msg: await this.ctx.get(I18nService).translate('en-US', msg),
+        msg: await this.ctx
+          .get(I18nService)
+          .translate(this.ctx.get(Chnroute).getLocale(this.ip), msg),
         player_type: type,
       }),
     );
   }
 
-  async die(msg?: string, type?: number) {
+  async die(msg?: string, type = ChatColor.BABYBLUE) {
     if (msg) {
       await this.sendChat(msg, type || ChatColor.BABYBLUE);
     }
@@ -113,34 +138,6 @@ export abstract class Client {
     }
 
     return this.receiveSubject.asObservable();
-  }
-
-  /**
-   * Wait for a message of any of the specified types
-   * @param types Array of message classes to wait for
-   * @param timeoutMs Timeout in milliseconds (default: 5000)
-   * @returns Promise that resolves with the matching message
-   * @throws Error if timeout is reached
-   */
-  async waitForMessage<const C extends ClassType<YGOProCtosBase>[]>(
-    types: C,
-    timeoutMs = 5000,
-  ): Promise<InstanceType<C[number]>> {
-    try {
-      return (await firstValueFrom(
-        this.receive().pipe(
-          filter((msg) => types.some((type) => msg instanceof type)) as any,
-          timeout(timeoutMs),
-        ),
-      )) as InstanceType<C[number]>;
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        throw new Error(
-          `Timeout waiting for message after ${timeoutMs}ms (IP: ${this.loggingIp()})`,
-        );
-      }
-      throw err;
-    }
   }
 
   name = '';

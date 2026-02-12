@@ -1,14 +1,12 @@
 import { Context } from '../app';
 import { Client } from '../client';
-import * as ip6addr from 'ip6addr';
+import * as ipaddr from 'ipaddr.js';
 
 export class IpResolver {
   private logger = this.ctx.createLogger('IpResolver');
   private connectedIpCount = new Map<string, number>();
   private badIpCount = new Map<string, number>();
-  private trustedProxies: Array<
-    ReturnType<typeof ip6addr.createCIDR | typeof ip6addr.createAddrRange>
-  > = [];
+  private trustedProxies: Array<[ipaddr.IPv4 | ipaddr.IPv6, number]> = [];
 
   constructor(private ctx: Context) {
     // Parse trusted proxies configuration
@@ -23,11 +21,7 @@ export class IpResolver {
 
     for (const trusted of proxies) {
       try {
-        if (trusted.includes('/')) {
-          this.trustedProxies.push(ip6addr.createCIDR(trusted));
-        } else {
-          this.trustedProxies.push(ip6addr.createAddrRange(trusted, trusted));
-        }
+        this.trustedProxies.push(ipaddr.parseCIDR(trusted));
       } catch (e: any) {
         this.logger.warn(
           { trusted, err: e.message },
@@ -57,13 +51,17 @@ export class IpResolver {
   }
 
   isTrustedProxy(ip: string): boolean {
-    return this.trustedProxies.some((trusted) => {
-      try {
-        return trusted.contains(ip);
-      } catch {
-        return false;
-      }
-    });
+    if (ip.startsWith('::ffff:')) {
+      ip = this.toIpv4(ip);
+    }
+    try {
+      const addr = ipaddr.parse(ip);
+      return this.trustedProxies.some(([range, mask]) => {
+        return addr.match(range, mask);
+      });
+    } catch {
+      return false;
+    }
   }
 
   getRealIp(physicalIp: string, xffIp?: string): string {

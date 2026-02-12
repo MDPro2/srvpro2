@@ -1,6 +1,7 @@
 import { IncomingMessage } from 'node:http';
 import { Socket } from 'node:net';
-import { Observable, filter, fromEvent, map } from 'rxjs';
+import { Observable, filter, fromEvent, map, merge } from 'rxjs';
+import { take } from 'rxjs/operators';
 import WebSocket, { RawData } from 'ws';
 import { Context } from '../../app';
 import { Client } from '../../client';
@@ -14,7 +15,7 @@ export class WsClient extends Client {
     super(ctx);
   }
 
-  _send(data: Buffer): Promise<void> {
+  protected _send(data: Buffer): Promise<void> {
     return new Promise((resolve, reject) => {
       this.sock.send(data, (error) => {
         if (error) {
@@ -26,7 +27,7 @@ export class WsClient extends Client {
     });
   }
 
-  _receive(): Observable<Buffer> {
+  protected _receive(): Observable<Buffer> {
     return fromEvent<[RawData, boolean]>(this.sock, 'message').pipe(
       filter(([, isBinary]) => isBinary),
       map(([data]) => {
@@ -41,9 +42,9 @@ export class WsClient extends Client {
     );
   }
 
-  disconnect(): Promise<void> {
+  protected async _disconnect(): Promise<void> {
     if (this.sock.readyState === WebSocket.CLOSED) {
-      return Promise.resolve();
+      return;
     }
     return new Promise((resolve) => {
       this.sock.once('close', () => resolve());
@@ -51,8 +52,11 @@ export class WsClient extends Client {
     });
   }
 
-  onDisconnect(): Observable<void> {
-    return fromEvent<void>(this.sock, 'close');
+  protected _onDisconnect(): Observable<void> {
+    return merge(
+      fromEvent<void>(this.sock, 'close'),
+      fromEvent<Error>(this.sock, 'error').pipe(map(() => undefined)),
+    ).pipe(take(1));
   }
 
   physicalIp(): string {

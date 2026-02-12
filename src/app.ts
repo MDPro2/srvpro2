@@ -5,6 +5,13 @@ import { Emitter } from './services/emitter';
 import { SSLFinder } from './services/ssl-finder';
 import { ClientHandler } from './services/client-handler';
 import { IpResolver } from './services/ip-resolver';
+import { HttpClient } from './services/http-client';
+import { Chnroute } from './services/chnroute';
+import { I18nService } from './services/i18n';
+import { YGOProCtosJoinGame } from 'ygopro-msg-encode';
+import { TcpServer } from './transport/tcp/server';
+import { WsServer } from './transport/ws/server';
+import { ClientVersionCheck } from './services/client-version-check';
 
 const core = createAppContext()
   .provide(ConfigService, {
@@ -12,6 +19,7 @@ const core = createAppContext()
   })
   .provide(Logger, { merge: ['createLogger'] })
   .provide(Emitter, { merge: ['dispatch', 'middleware', 'removeMiddleware'] })
+  .provide(HttpClient, { merge: ['http'] })
   .define();
 
 export type Context = typeof core;
@@ -19,5 +27,21 @@ export type Context = typeof core;
 export const app = core
   .provide(SSLFinder)
   .provide(IpResolver)
+  .provide(Chnroute)
+  .provide(I18nService)
   .provide(ClientHandler)
+  .provide(TcpServer)
+  .provide(WsServer)
+  .provide(ClientVersionCheck)
   .define();
+
+app.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
+  await client.sendChat(`Welcome ${client.name_vpass || client.name}!`);
+  await client.sendChat(`Your IP: ${client.ip}`);
+  await client.sendChat(`Your physical IP: ${client.physicalIp()}`);
+  await client.sendChat(`Your pass: ${msg.pass}`);
+  await client.die(
+    'This server is for testing purposes only. Please use an official server to play the game.',
+  );
+  return undefined;
+});

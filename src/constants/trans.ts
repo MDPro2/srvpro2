@@ -1,4 +1,19 @@
 export const TRANSLATIONS = {
-  'en-US': {},
-  'zh-CN': {},
-}
+  'en-US': {
+    update_required: 'Please update your client version',
+    wait_update:
+      'Your client version is higher than the server version, please wait for the server to update',
+    version_to_polyfill:
+      'Your client version is not fully supported. Please rejoin to enable temporary compatibility mode. For the best experience, we recommend updating your game to the latest version.',
+    version_polyfilled:
+      'Temporary compatibility mode has been enabled for your version. We recommend updating your game to avoid potential compatibility issues in the future.',
+  },
+  'zh-CN': {
+    update_required: '请更新你的客户端版本',
+    wait_update: '你的客户端版本高于服务器版本，请等待服务器更新',
+    version_to_polyfill:
+      '当前客户端版本暂未完全支持。请重新加入以启用临时兼容模式。为获得更佳体验，建议尽快更新游戏版本。',
+    version_polyfilled:
+      '已为当前版本启用临时兼容模式。建议尽快更新游戏，以避免后续兼容性问题。',
+  },
+};
