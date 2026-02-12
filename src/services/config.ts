@@ -9,6 +9,6 @@ export class ConfigService {
     key: K,
     defaultValue?: D,
   ): D extends string ? Config[K] | D : Config[K] | undefined {
-    return (this.config[key] || defaultValue || undefined) as any;
+    return (this.config[key] || (defaultValue ?? undefined)) as any;
   }
 }
