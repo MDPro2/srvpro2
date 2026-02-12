@@ -35,7 +35,7 @@ export const app = core
   .provide(ClientVersionCheck)
   .define();
 
-app.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
+app.middleware(YGOProCtosJoinGame, async (msg, client, _next) => {
   await client.sendChat(`Welcome ${client.name_vpass || client.name}!`);
   await client.sendChat(`Your IP: ${client.ip}`);
   await client.sendChat(`Your physical IP: ${client.physicalIp()}`);

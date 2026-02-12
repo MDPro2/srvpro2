@@ -1,7 +1,7 @@
 import { IncomingMessage } from 'node:http';
 import { Socket } from 'node:net';
-import { Observable, filter, fromEvent, map, merge } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Observable, fromEvent, merge } from 'rxjs';
+import { map, take } from 'rxjs/operators';
 import WebSocket, { RawData } from 'ws';
 import { Context } from '../../app';
 import { Client } from '../../client';
@@ -28,18 +28,26 @@ export class WsClient extends Client {
   }
 
   protected _receive(): Observable<Buffer> {
-    return fromEvent<[RawData, boolean]>(this.sock, 'message').pipe(
-      filter(([, isBinary]) => isBinary),
-      map(([data]) => {
+    return new Observable<Buffer>((subscriber) => {
+      const handler = (data: RawData, isBinary: boolean) => {
+        if (!isBinary) {
+          return;
+        }
         if (Buffer.isBuffer(data)) {
-          return data;
+          subscriber.next(data);
+        } else if (Array.isArray(data)) {
+          subscriber.next(Buffer.concat(data));
+        } else {
+          subscriber.next(Buffer.from(data));
         }
-        if (Array.isArray(data)) {
-          return Buffer.concat(data);
-        }
-        return Buffer.from(data);
-      }),
-    );
+      };
+
+      this.sock.on('message', handler);
+
+      return () => {
+        this.sock.off('message', handler);
+      };
+    });
   }
 
   protected async _disconnect(): Promise<void> {
