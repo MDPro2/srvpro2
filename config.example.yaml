@@ -1,0 +1,8 @@
+HOST: "::"
+PORT: "7911"
+LOG_LEVEL: info
+WS_PORT: "0"
+SSL_PATH: ""
+SSL_CERT: ""
+SSL_KEY: ""
+TRUSTED_PROXIES: 127.0.0.0/8,::1/128
