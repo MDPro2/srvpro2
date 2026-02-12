@@ -5,7 +5,7 @@ import { ConfigService } from './config';
 export class Logger {
   constructor(private ctx: AppContext) {}
   private readonly logger = pino({
-    level: this.ctx.get(ConfigService).getConfig('LOG_LEVEL') || 'info',
+    level: this.ctx.get(() => ConfigService).getConfig('LOG_LEVEL') || 'info',
     transport: {
       target: 'pino-pretty',
       options: {

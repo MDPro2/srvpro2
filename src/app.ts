@@ -12,6 +12,10 @@ import { YGOProCtosJoinGame } from 'ygopro-msg-encode';
 import { TcpServer } from './transport/tcp/server';
 import { WsServer } from './transport/ws/server';
 import { ClientVersionCheck } from './services/client-version-check';
+import { AragamiService } from './services/aragami';
+import { RoomManager } from './room/room-manager';
+import { DefaultHostInfoProvider } from './room/default-hostinfo-provder';
+import { YGOProResourceLoader } from './services/ygopro-resource-loader';
 
 const core = createAppContext()
   .provide(ConfigService, {
@@ -20,6 +24,7 @@ const core = createAppContext()
   .provide(Logger, { merge: ['createLogger'] })
   .provide(Emitter, { merge: ['dispatch', 'middleware', 'removeMiddleware'] })
   .provide(HttpClient, { merge: ['http'] })
+  .provide(AragamiService, { merge: ['aragami'] })
   .define();
 
 export type Context = typeof core;
@@ -33,6 +38,9 @@ export const app = core
   .provide(TcpServer)
   .provide(WsServer)
   .provide(ClientVersionCheck)
+  .provide(DefaultHostInfoProvider)
+  .provide(YGOProResourceLoader)
+  .provide(RoomManager)
   .define();
 
 app.middleware(YGOProCtosJoinGame, async (msg, client, _next) => {

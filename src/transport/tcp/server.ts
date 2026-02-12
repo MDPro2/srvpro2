@@ -38,7 +38,7 @@ export class TcpServer {
 
   private handleConnection(socket: Socket): void {
     const client = new TcpClient(this.ctx, socket);
-    const handler = this.ctx.get(ClientHandler);
+    const handler = this.ctx.get(() => ClientHandler);
     handler.handleClient(client).catch((err) => {
       this.logger.error({ err }, 'Error handling client');
     });

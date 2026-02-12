@@ -1,5 +1,11 @@
 import yaml from 'yaml';
 import * as fs from 'node:fs';
+import { DefaultHostinfo } from './room/default-hostinfo';
+import { Prettify } from 'nfkit';
+
+export type HostinfoOptions = {
+  [K in keyof typeof DefaultHostinfo as `HOSTINFO_${Uppercase<K>}`]: string;
+};
 
 export const defaultConfig = {
   HOST: '::',
@@ -13,9 +19,17 @@ export const defaultConfig = {
   NO_CONNECT_COUNT_LIMIT: '',
   ALT_VERSIONS: '',
   USE_PROXY: '',
+  YGOPRO_PATH: './ygopro',
+  EXTRA_SCRIPT_PATH: '',
+  ...(Object.fromEntries(
+    Object.entries(DefaultHostinfo).map(([key, value]) => [
+      `HOSTINFO_${key.toUpperCase()}`,
+      value.toString(),
+    ]),
+  ) as HostinfoOptions),
 };
 
-export type Config = typeof defaultConfig;
+export type Config = Prettify<typeof defaultConfig & HostinfoOptions>;
 
 export function loadConfig(): Config {
   let readConfig: Partial<Config> = {};

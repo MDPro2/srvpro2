@@ -4,15 +4,12 @@ import {
   YGOProStocErrorMsg,
 } from 'ygopro-msg-encode';
 import { Context } from '../app';
+import { convertNumberArray } from '../utility/convert-string-array';
 
 const YGOPRO_VERSION = 0x1362;
 
 export class ClientVersionCheck {
-  private altVersions = this.ctx
-    .getConfig('ALT_VERSIONS', '')
-    .split(',')
-    .map((v) => parseInt(v.trim()))
-    .filter((v) => v);
+  private altVersions = convertNumberArray(this.ctx.getConfig('ALT_VERSIONS'));
 
   constructor(private ctx: Context) {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {

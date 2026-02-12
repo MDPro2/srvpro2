@@ -2,6 +2,7 @@ import {
   YGOProCtosBase,
   YGOProCtosExternalAddress,
   YGOProCtosJoinGame,
+  YGOProCtosLeaveGame,
   YGOProCtosPlayerInfo,
 } from 'ygopro-msg-encode';
 import { Context } from '../app';
@@ -12,45 +13,53 @@ import { forkJoin, filter, takeUntil, timeout, firstValueFrom } from 'rxjs';
 
 export class ClientHandler {
   constructor(private ctx: Context) {
-    this.ctx.middleware(
-      YGOProCtosExternalAddress,
-      async (msg, client, next) => {
+    this.ctx
+      .middleware(YGOProCtosExternalAddress, async (msg, client, next) => {
         if (client instanceof WsClient || client.ip) {
           // ws should tell real IP and hostname in http headers, so we skip this step for ws clients
           return next();
         }
         this.ctx
-          .get(IpResolver)
+          .get(() => IpResolver)
           .setClientIp(
             client,
             msg.real_ip === '0.0.0.0' ? undefined : msg.real_ip,
           );
         client.hostname = msg.hostname?.split(':')[0] || '';
         return next();
-      },
-    );
-
-    this.ctx.middleware(YGOProCtosPlayerInfo, async (msg, client, next) => {
-      if (!client.ip) {
-        this.ctx.get(IpResolver).setClientIp(client);
-      }
-      const [name, vpass] = msg.name.split('$');
-      client.name = name;
-      client.vpass = vpass || '';
-      return next();
-    });
-    this.ctx.middleware(YGOProCtosBase, async (msg, client, next) => {
-      const isPreHandshakeMsg = [
-        YGOProCtosExternalAddress,
-        YGOProCtosPlayerInfo,
-        YGOProCtosJoinGame,
-      ].some((allowed) => msg instanceof allowed);
-      if (client.established !== isPreHandshakeMsg) {
-        // disallow any messages before handshake is complete, except for the ones needed for handshake
-        return undefined;
-      }
-      return next();
-    });
+      })
+      .middleware(YGOProCtosPlayerInfo, async (msg, client, next) => {
+        if (!client.ip) {
+          this.ctx.get(() => IpResolver).setClientIp(client);
+        }
+        const [name, vpass] = msg.name.split('$');
+        client.name = name;
+        client.vpass = vpass || '';
+        return next();
+      })
+      .middleware(
+        YGOProCtosBase,
+        async (msg, client, next) => {
+          const isPreHandshakeMsg = [
+            YGOProCtosExternalAddress,
+            YGOProCtosPlayerInfo,
+            YGOProCtosJoinGame,
+          ].some((allowed) => msg instanceof allowed);
+          if (client.established !== isPreHandshakeMsg) {
+            // disallow any messages before handshake is complete, except for the ones needed for handshake
+            return undefined;
+          }
+          return next();
+        },
+        true,
+      )
+      .middleware(
+        YGOProCtosLeaveGame, // this means immediately disconnect the client when they send leave game message, which is what official server does
+        async (msg, client, next) => {
+          return client.disconnect();
+        },
+        true,
+      );
   }
 
   private logger = this.ctx.createLogger('ClientHandler');

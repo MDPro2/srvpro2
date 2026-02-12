@@ -1,6 +1,7 @@
 import { Context } from '../app';
 import { Client } from '../client';
 import * as ipaddr from 'ipaddr.js';
+import { convertStringArray } from '../utility/convert-string-array';
 
 export class IpResolver {
   private logger = this.ctx.createLogger('IpResolver');
@@ -9,16 +10,10 @@ export class IpResolver {
   private trustedProxies: Array<[ipaddr.IPv4 | ipaddr.IPv6, number]> = [];
 
   constructor(private ctx: Context) {
-    // Parse trusted proxies configuration
-    const trustedProxiesConfig = this.ctx.getConfig(
-      'TRUSTED_PROXIES',
-      '127.0.0.0/8,::1/128',
+    const proxies = convertStringArray(
+      this.ctx.getConfig('TRUSTED_PROXIES', '127.0.0.0/8,::1/128'),
     );
-    const proxies = trustedProxiesConfig
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
+    
     for (const trusted of proxies) {
       try {
         this.trustedProxies.push(ipaddr.parseCIDR(trusted));

@@ -30,7 +30,7 @@ export class WsServer {
     const portNum = parseInt(wsPort, 10);
 
     // Try to get SSL configuration
-    const sslFinder = this.ctx.get(SSLFinder);
+    const sslFinder = this.ctx.get(() => SSLFinder);
     const sslOptions = sslFinder.findSSL();
 
     if (sslOptions) {
@@ -67,9 +67,9 @@ export class WsServer {
 
   private handleConnection(ws: WebSocket, req: IncomingMessage): void {
     const client = new WsClient(this.ctx, ws, req);
-    if (this.ctx.get(IpResolver).setClientIp(client, client.xffIp())) return;
+    if (this.ctx.get(() => IpResolver).setClientIp(client, client.xffIp())) return;
     client.hostname = req.headers.host?.split(':')[0] || '';
-    const handler = this.ctx.get(ClientHandler);
+    const handler = this.ctx.get(() => ClientHandler);
     handler.handleClient(client).catch((err) => {
       this.logger.error({ err }, 'Error handling client');
     });

@@ -8,10 +8,15 @@ import {
   YGOProStocChat,
   ChatColor,
   YGOProStocErrorMsg,
+  YGOProStocTypeChange,
+  YGOProStocHsPlayerEnter,
+  YGOProStocHsPlayerChange,
+  PlayerChangeState,
 } from 'ygopro-msg-encode';
 import { YGOProProtoPipe } from './utility/ygopro-proto-pipe';
 import { I18nService } from './services/i18n';
 import { Chnroute } from './services/chnroute';
+import YGOProDeck from 'ygopro-deck-encode';
 
 export abstract class Client {
   protected abstract _send(data: Buffer): Promise<void>;
@@ -20,6 +25,7 @@ export abstract class Client {
   protected abstract _onDisconnect(): Observable<void>;
   abstract physicalIp(): string;
 
+  // in handshake
   ip = '';
   isLocal = false;
 
@@ -29,12 +35,14 @@ export abstract class Client {
   constructor(protected ctx: Context) {}
 
   receive$!: Observable<YGOProCtosBase>;
-  disconnect$!: Observable<void>;
+  disconnect$!: Observable<{ bySystem: boolean }>;
 
   init() {
     this.disconnect$ = merge(
-      this.disconnectSubject.asObservable(),
-      this._onDisconnect(),
+      this.disconnectSubject
+        .asObservable()
+        .pipe(map(() => ({ bySystem: true }))),
+      this._onDisconnect().pipe(map(() => ({ bySystem: false }))),
     ).pipe(take(1), share());
     this.receive$ = this._receive().pipe(
       YGOProProtoPipe(YGOProCtos, {
@@ -62,7 +70,7 @@ export abstract class Client {
     return this;
   }
 
-  disconnect() {
+  disconnect(): undefined {
     this.disconnectSubject.next();
     this.disconnectSubject.complete();
     this._disconnect().then();
@@ -84,8 +92,8 @@ export abstract class Client {
     return this.send(
       new YGOProStocChat().fromPartial({
         msg: await this.ctx
-          .get(I18nService)
-          .translate(this.ctx.get(Chnroute).getLocale(this.ip), msg),
+          .get(() => I18nService)
+          .translate(this.ctx.get(() => Chnroute).getLocale(this.ip), msg),
         player_type: type,
       }),
     );
@@ -108,10 +116,40 @@ export abstract class Client {
     return this.ip || this.physicalIp() || 'unknown';
   }
 
+  // in handshake
   hostname = '';
   name = '';
   vpass = '';
   name_vpass = '';
-
   established = false;
+
+  // in room
+  isHost = false;
+  pos = -1;
+  deck?: YGOProDeck;
+
+  async sendTypeChange() {
+    return this.send(
+      new YGOProStocTypeChange().fromPartial({
+        isHost: this.isHost,
+        playerPosition: this.pos,
+      }),
+    );
+  }
+
+  prepareEnterPacket() {
+    return new YGOProStocHsPlayerEnter().fromPartial({
+      name: this.name,
+      pos: this.pos,
+    });
+  }
+
+  prepareChangePacket(state?: PlayerChangeState) {
+    return new YGOProStocHsPlayerChange().fromPartial({
+      playerPosition: this.pos,
+      playerState:
+        state ??
+        (this.deck ? PlayerChangeState.READY : PlayerChangeState.NOTREADY),
+    });
+  }
 }
