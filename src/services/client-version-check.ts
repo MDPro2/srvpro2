@@ -30,7 +30,7 @@ export class ClientVersionCheck {
           code: YGOPRO_VERSION,
         }),
       );
-      await client.disconnect();
+      return client.disconnect();
     });
   }
 }

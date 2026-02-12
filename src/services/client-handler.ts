@@ -39,7 +39,7 @@ export class ClientHandler {
     client.init();
     try {
       client.init();
-      client.receive().subscribe(async (msg) => {
+      client.receive$.subscribe(async (msg) => {
         try {
           await this.ctx.dispatch(msg, client);
         } catch (e) {
@@ -49,7 +49,7 @@ export class ClientHandler {
         }
       });
     } catch {
-      client.disconnect().then();
+      client.disconnect();
     }
   }
 }

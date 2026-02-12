@@ -40,8 +40,7 @@ app.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
   await client.sendChat(`Your IP: ${client.ip}`);
   await client.sendChat(`Your physical IP: ${client.physicalIp()}`);
   await client.sendChat(`Your pass: ${msg.pass}`);
-  await client.die(
+  return client.die(
     'This server is for testing purposes only. Please use an official server to play the game.',
   );
-  return undefined;
 });

@@ -1,13 +1,5 @@
-import {
-  filter,
-  firstValueFrom,
-  merge,
-  Observable,
-  Subject,
-  timeout,
-  TimeoutError,
-} from 'rxjs';
-import { take } from 'rxjs/operators';
+import { filter, merge, Observable, Subject } from 'rxjs';
+import { map, share, take, takeUntil } from 'rxjs/operators';
 import { Context } from './app';
 import {
   YGOProCtos,
@@ -18,7 +10,6 @@ import {
   YGOProStocErrorMsg,
 } from 'ygopro-msg-encode';
 import { YGOProProtoPipe } from './utility/ygopro-proto-pipe';
-import { ClassType } from 'nfkit';
 import { I18nService } from './services/i18n';
 import { Chnroute } from './services/chnroute';
 
@@ -33,36 +24,48 @@ export abstract class Client {
   isLocal = false;
 
   private logger = this.ctx.createLogger(this.constructor.name);
-  private receiveSubject?: Subject<YGOProCtosBase>;
   private disconnectSubject = new Subject<void>();
-  private manuallyDisconnected = false;
 
   constructor(protected ctx: Context) {}
 
+  receive$!: Observable<YGOProCtosBase>;
+  disconnect$!: Observable<void>;
+
   init() {
-    this.onDisconnect().subscribe(() => {
-      if (this.receiveSubject) {
-        this.receiveSubject.complete();
-        this.receiveSubject = undefined;
-      }
-    });
-  }
-
-  async disconnect(): Promise<void> {
-    this.manuallyDisconnected = true;
-    this.disconnectSubject.next();
-    this.disconnectSubject.complete();
-    await this._disconnect();
-  }
-
-  onDisconnect(): Observable<void> {
-    if (this.manuallyDisconnected) {
-      return this.disconnectSubject.asObservable();
-    }
-    return merge(
+    this.disconnect$ = merge(
       this.disconnectSubject.asObservable(),
       this._onDisconnect(),
     ).pipe(take(1));
+    this.receive$ = this._receive().pipe(
+      YGOProProtoPipe(YGOProCtos, {
+        onError: (error) => {
+          this.logger.warn(
+            { ip: this.loggingIp() },
+            `Protocol decode error: ${error.message}`,
+          );
+        },
+      }),
+      filter((msg) => {
+        if (!msg) {
+          this.logger.warn(
+            { ip: this.loggingIp() },
+            `Received invalid message, skipping`,
+          );
+          return false;
+        }
+        return true;
+      }),
+      map((s) => s!),
+      takeUntil(this.disconnect$),
+      share(),
+    );
+  }
+
+  disconnect() {
+    this.disconnectSubject.next();
+    this.disconnectSubject.complete();
+    this._disconnect().then();
+    return undefined;
   }
 
   async send(data: YGOProStocBase) {
@@ -97,47 +100,11 @@ export abstract class Client {
         code: 9,
       }),
     );
-    this.disconnect().then();
+    return this.disconnect();
   }
 
   loggingIp() {
     return this.ip || this.physicalIp() || 'unknown';
-  }
-
-  receive(): Observable<YGOProCtosBase> {
-    // Create subject on first call and reuse it
-    if (!this.receiveSubject) {
-      this.receiveSubject = new Subject<YGOProCtosBase>();
-
-      this._receive()
-        .pipe(
-          YGOProProtoPipe(YGOProCtos, {
-            onError: (error) => {
-              this.logger.warn(
-                { ip: this.loggingIp() },
-                `Protocol decode error: ${error.message}`,
-              );
-            },
-          }),
-          filter((msg) => {
-            if (!msg) {
-              this.logger.warn(
-                { ip: this.loggingIp() },
-                `Received invalid message, skipping`,
-              );
-              return false;
-            }
-            return true;
-          }),
-        )
-        .subscribe({
-          next: (data) => this.receiveSubject?.next(data!),
-          error: (err) => this.receiveSubject?.error(err),
-          complete: () => this.receiveSubject?.complete(),
-        });
-    }
-
-    return this.receiveSubject.asObservable();
   }
 
   name = '';

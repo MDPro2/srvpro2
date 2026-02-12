@@ -77,7 +77,7 @@ export const YGOProProtoPipe = <
             const total = 2 + len;
             if (total > maxFrameBytes) {
               opts.onError?.(new Error('Frame size exceeds maxFrameBytes'));
-              state.skipBytes += total;
+              state.skipBytes = (state.skipBytes ?? 0) + total;
               continue;
             }
 

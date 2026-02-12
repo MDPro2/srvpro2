@@ -135,9 +135,7 @@ export class IpResolver {
         { ip: newIp, badCount, connectCount },
         'Rejecting bad IP',
       );
-      client.disconnect().catch((err) => {
-        this.logger.error({ err }, 'Error disconnecting client');
-      });
+      client.disconnect();
       return true;
     }
 
