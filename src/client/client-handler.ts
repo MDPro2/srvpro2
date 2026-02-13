@@ -16,6 +16,7 @@ import {
   firstValueFrom,
   merge,
   map,
+  take,
 } from 'rxjs';
 import { YGOProCtosDisconnect } from '../utility/ygopro-ctos-disconnect';
 
@@ -52,8 +53,8 @@ export class ClientHandler {
             YGOProCtosExternalAddress,
             YGOProCtosPlayerInfo,
             YGOProCtosJoinGame,
-          ].some((allowed) => msg instanceof allowed);
-          if (client.established !== isPreHandshakeMsg) {
+          ].some((allowed) => (msg instanceof allowed) as boolean);
+          if (client.established === isPreHandshakeMsg) {
             // disallow any messages before handshake is complete, except for the ones needed for handshake
             return undefined;
           }
@@ -85,7 +86,7 @@ export class ClientHandler {
         await this.ctx.dispatch(msg, client);
       } catch (e) {
         this.logger.warn(
-          `Error dispatching message ${msg.constructor.name} from ${client.loggingIp()}: ${(e as Error).message}`,
+          `Error dispatching message ${msg.constructor.name} from ${client.loggingIp()}: ${(e as Error).stack}`,
         );
       }
     });
@@ -93,16 +94,19 @@ export class ClientHandler {
     const handshake$ = forkJoin([
       client.receive$.pipe(
         filter((msg) => msg instanceof YGOProCtosPlayerInfo),
+        take(1),
         takeUntil(client.disconnect$),
       ),
       client.receive$.pipe(
         filter((msg) => msg instanceof YGOProCtosJoinGame),
+        take(1),
         takeUntil(client.disconnect$),
       ),
     ]).pipe(timeout(5000), takeUntil(client.disconnect$));
 
     firstValueFrom(handshake$)
       .then(() => {
+        this.logger.debug({ client: client.name }, 'Handshake completed');
         client.established = true;
       })
       .catch(() => {

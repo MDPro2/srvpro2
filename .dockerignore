@@ -42,3 +42,4 @@ Dockerfile
 .dockerignore
 /tests
 /ssl
+/ygopro

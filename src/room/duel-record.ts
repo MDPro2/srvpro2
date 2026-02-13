@@ -10,10 +10,12 @@ const REPLAY_ID_YRP2 = 0x32707279;
 const PRO_VERSION = 0x1362;
 
 export class DuelRecord {
-  seed: number[];
-  players: { name: string; deck: YGOProDeck }[];
+  constructor(
+    public seed: number[],
+    public players: { name: string; deck: YGOProDeck }[],
+  ) {}
   winPosition?: number;
-  responses: Buffer[];
+  responses: Buffer[] = [];
 
   toYrp(room: Room) {
     const isTag = room.isTag;

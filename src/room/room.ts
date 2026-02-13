@@ -27,6 +27,8 @@ import {
   YGOProStocDuelEnd,
   YGOProStocChangeSide,
   YGOProStocWaitingSide,
+  YGOProCtosTpResult,
+  TurnPlayerResult,
 } from 'ygopro-msg-encode';
 import { DefaultHostInfoProvider } from './default-hostinfo-provder';
 import { CardReaderFinalized } from 'koishipro-core.js';
@@ -45,11 +47,12 @@ import { OnRoomLeavePlayer } from './room-event/on-room-leave-player';
 import { OnRoomLeaveObserver } from './room-event/on-room-leave-observer';
 import { OnRoomMatchStart } from './room-event/on-room-match-start';
 import { OnRoomGameStart } from './room-event/on-room-game-start';
-// import { OnRoomDuelStart } from './room-event/on-room-duel-start'; // 备用事件，暂未使用
 import YGOProDeck from 'ygopro-deck-encode';
 import { checkDeck, checkChangeSide } from '../utility/check-deck';
 import { DuelRecord } from './duel-record';
-import { last } from 'rxjs';
+import { RoomEvent } from './room-event/room-event';
+import { generateSeed } from '../utility/generate-seed';
+import { OnRoomDuelStart } from './room-event/on-room-duel-start';
 
 export type RoomFinalizor = (self: Room) => Awaitable<any>;
 
@@ -336,6 +339,7 @@ export class Room {
         .forEach((p) => p.send(new YGOProStocDuelStart()));
     }
     const duelPos = this.getSwappedDuelPosByDuelPos(winMsg.player!);
+    this.isPosSwapped = false;
     await Promise.all(
       this.allPlayers.map((p) =>
         p.send(
@@ -513,15 +517,21 @@ export class Room {
 
       const oldPos = client.pos;
 
+      // 从当前位置的下一个位置开始循环查找空位
+      let nextPos = (oldPos + 1) % 4;
+      while (this.players[nextPos]) {
+        nextPos = (nextPos + 1) % 4;
+      }
+
       // 移动到新位置
       this.players[oldPos] = undefined;
-      this.players[firstEmptyPlayerSlot] = client;
-      client.pos = firstEmptyPlayerSlot;
+      this.players[nextPos] = client;
+      client.pos = nextPos;
 
       // 发送 PlayerChange 给所有人
       const changeMsg = new YGOProStocHsPlayerChange().fromPartial({
         playerPosition: oldPos,
-        playerState: firstEmptyPlayerSlot,
+        playerState: nextPos,
       });
       this.allPlayers.forEach((p) => p.send(changeMsg));
 
@@ -713,7 +723,7 @@ export class Room {
     if (![DuelStage.Finger, DuelStage.Siding].includes(this.duelStage)) {
       return false;
     }
-    if (this.winnerPositions.length === 0) {
+    if (this.duelRecords.length === 0) {
       this.allPlayers.forEach((p) => p.send(new YGOProStocDuelStart()));
       const displayCountDecks = [0, 1].map(
         (p) => this.getDuelPosPlayers(p)[0].deck!,
@@ -754,7 +764,7 @@ export class Room {
     }
 
     // 触发事件
-    if (this.winnerPositions.length === 0) {
+    if (this.duelRecords.length === 0) {
       // 触发比赛开始事件（第一局）
       await this.ctx.dispatch(
         new OnRoomMatchStart(this),
@@ -766,5 +776,38 @@ export class Room {
     await this.ctx.dispatch(new OnRoomGameStart(this), this.playingPlayers[0]);
 
     return true;
+  }
+
+  @RoomMethod()
+  private async onDuelStart(client: Client, msg: YGOProCtosTpResult) {
+    if (this.duelStage !== DuelStage.FirstGo) {
+      return;
+    }
+    if (client !== this.firstgoPlayer) {
+      return;
+    }
+    this.isPosSwapped =
+      (msg.res === TurnPlayerResult.FIRST) !== (this.getDuelPos(client) === 0);
+    const duelRecord = new DuelRecord(
+      generateSeed(),
+      this.playingPlayers.map((p) => ({ name: p.name, deck: p.deck! })),
+    );
+    if (this.isPosSwapped) {
+      this.playingPlayers.forEach((p) => {
+        duelRecord.players[this.getSwappedDuelPos(p)] = {
+          name: p.name,
+          deck: p.deck!,
+        };
+      });
+    }
+    this.duelRecords.push(duelRecord);
+
+    await this.ctx.dispatch(
+      new OnRoomDuelStart(this),
+      this.getDuelPosPlayers(this.getSwappedDuelPos(0))[0],
+    );
+
+    this.allPlayers.forEach((p) => p.sendChat('TODO: duel start'));
+    return this.finalize();
   }
 }

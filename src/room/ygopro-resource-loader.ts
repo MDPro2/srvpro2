@@ -13,7 +13,13 @@ export class YGOProResourceLoader {
   ]);
   extraScriptPaths = loadPaths(this.ctx.getConfig('EXTRA_SCRIPT_PATH'));
 
+  private logger = this.ctx.createLogger(this.constructor.name);
+
   async getCardReader() {
+    this.logger.debug(
+      { ygoproPaths: this.ygoproPaths, sql: typeof this.ctx.SQL.Database },
+      'Getting card reader',
+    );
     return DirCardReader(this.ctx.SQL, ...this.ygoproPaths);
   }
 
