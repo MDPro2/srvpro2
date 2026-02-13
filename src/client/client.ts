@@ -17,6 +17,7 @@ import { YGOProProtoPipe } from '../utility/ygopro-proto-pipe';
 import { I18nService } from '../services/i18n';
 import { Chnroute } from '../services/chnroute';
 import YGOProDeck from 'ygopro-deck-encode';
+import PQueue from 'p-queue';
 
 export abstract class Client {
   protected abstract _send(data: Buffer): Promise<void>;
@@ -77,15 +78,19 @@ export abstract class Client {
     return undefined;
   }
 
+  private sendQueue = new PQueue({ concurrency: 1 });
+
   async send(data: YGOProStocBase) {
-    try {
-      await this._send(Buffer.from(data.toFullPayload()));
-    } catch (e) {
-      this.logger.warn(
-        { ip: this.loggingIp(), error: (e as Error).message },
-        `Failed to send message: ${(e as Error).message}`,
-      );
-    }
+    return this.sendQueue.add(async () => {
+      try {
+        await this._send(Buffer.from(data.toFullPayload()));
+      } catch (e) {
+        this.logger.warn(
+          { ip: this.loggingIp(), error: (e as Error).message },
+          `Failed to send message: ${(e as Error).message}`,
+        );
+      }
+    });
   }
 
   async sendChat(msg: string, type = ChatColor.BABYBLUE) {
@@ -128,6 +133,7 @@ export abstract class Client {
   isHost = false;
   pos = -1;
   deck?: YGOProDeck;
+  startDeck?: YGOProDeck;
 
   async sendTypeChange() {
     return this.send(
