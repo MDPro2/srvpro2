@@ -1,5 +1,6 @@
 import { Awaitable } from 'nfkit';
 import { Context } from '../app';
+import BetterLock from 'better-lock';
 import {
   HostInfo,
   NetPlayerType,
@@ -109,7 +110,16 @@ export class Room {
   private get resourceLoader() {
     return this.ctx.get(() => YGOProResourceLoader);
   }
-  private cardReader!: CardReaderFinalized;
+  private _cardReader?: CardReaderFinalized;
+  private cardReaderLock = new BetterLock();
+  private async getCardReader() {
+    return this.cardReaderLock.acquire(async () => {
+      if (!this._cardReader) {
+        this._cardReader = await this.resourceLoader.getCardReader();
+      }
+      return this._cardReader;
+    });
+  }
   private lflist = blankLFList;
 
   private async findLFList() {
@@ -132,7 +142,8 @@ export class Room {
   }
 
   async init() {
-    this.cardReader = await this.resourceLoader.getCardReader();
+    // Start loading cardReader in background (don't await)
+    this.getCardReader();
     if (this.hostinfo.lflist >= 0) {
       this.lflist = (await this.findLFList()) || blankLFList;
     }
@@ -596,8 +607,9 @@ export class Room {
       side: msg.deck.side,
     });
     // we have to distinguish main and extra deck cards
+    const cardReader = await this.getCardReader();
     for (const card of msg.deck.main) {
-      const cardEntry = this.cardReader.apply(card);
+      const cardEntry = cardReader.apply(card);
       if (
         cardEntry?.type &&
         cardEntry.type & OcgcoreCommonConstants.TYPES_EXTRA_DECK
@@ -612,7 +624,7 @@ export class Room {
     if (this.duelStage === DuelStage.Begin) {
       // Begin stage: check deck validity (lflist, etc.) if no_check_deck is false
       if (!this.hostinfo.no_check_deck) {
-        const deckError = checkDeck(deck, this.cardReader, {
+        const deckError = checkDeck(deck, cardReader, {
           ot: this.hostinfo.rule,
           lflist: this.lflist,
           minMain: parseInt(this.ctx.getConfig('DECK_MAIN_MIN', '40')),
