@@ -869,11 +869,8 @@ export class Room {
     return true;
   }
 
-  @RoomMethod()
+  @RoomMethod({ allowInDuelStages: DuelStage.FirstGo })
   private async onDuelStart(client: Client, msg: YGOProCtosTpResult) {
-    if (this.duelStage !== DuelStage.FirstGo) {
-      return;
-    }
     if (client !== this.firstgoPlayer) {
       return;
     }
