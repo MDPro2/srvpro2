@@ -5,8 +5,17 @@ import {
   NetPlayerType,
   PlayerChangeState,
   YGOProStocDuelStart,
+  YGOProStocHsPlayerChange,
   YGOProStocHsWatchChange,
   YGOProStocJoinGame,
+  YGOProCtosHsToObserver,
+  YGOProCtosHsToDuelist,
+  YGOProCtosKick,
+  YGOProCtosHsNotReady,
+  YGOProStocDeckCount,
+  YGOProStocDeckCount_DeckInfo,
+  YGOProStocSelectTp,
+  YGOProStocSelectHand,
 } from 'ygopro-msg-encode';
 import { DefaultHostInfoProvider } from './default-hostinfo-provder';
 import { CardReaderFinalized } from 'koishipro-core.js';
@@ -19,6 +28,7 @@ import { DuelStage } from './duel-stage';
 import { OnRoomJoin } from './room-event/on-room-join';
 import { OnRoomLeave } from './room-event/on-room-leave';
 import { OnRoomWin } from './room-event/on-room-win';
+import YGOProDeck from 'ygopro-deck-encode';
 
 export type RoomFinalizor = (self: Room) => Awaitable<any>;
 
@@ -215,7 +225,7 @@ export class Room {
   }
 
   @RoomMethod()
-  async onDisconnect(client: Client, _msg: YGOProCtosDisconnect) {
+  private async onDisconnect(client: Client, _msg: YGOProCtosDisconnect) {
     if (client.pos === NetPlayerType.OBSERVER) {
       this.watchers.delete(client);
       for (const p of this.allPlayers) {
@@ -240,5 +250,209 @@ export class Room {
 
     await this.ctx.dispatch(new OnRoomLeave(this), client);
     client.roomName = undefined;
+  }
+
+  @RoomMethod()
+  private async onToObserver(client: Client, _msg: YGOProCtosHsToObserver) {
+    // 游戏已经开始，不允许切换
+    if (this.duelStage !== DuelStage.Begin) {
+      return;
+    }
+
+    // 如果已经是观战者，直接返回
+    if (client.pos === NetPlayerType.OBSERVER) {
+      return;
+    }
+
+    // 保存原位置
+    const oldPos = client.pos;
+
+    // 发送 PlayerChange 给所有人
+    const changeMsg = new YGOProStocHsPlayerChange().fromPartial({
+      playerPosition: oldPos,
+      playerState: PlayerChangeState.OBSERVE,
+    });
+    this.allPlayers.forEach((p) => p.send(changeMsg));
+
+    // 从 players 移除
+    this.players[client.pos] = undefined;
+    client.pos = NetPlayerType.OBSERVER;
+
+    // 添加到观战者
+    this.watchers.add(client);
+
+    // 发送 TypeChange 给客户端
+    await client.sendTypeChange();
+
+    // 发送观战者数量更新
+    this.allPlayers.forEach((p) => p.send(this.watcherSizeMessage));
+  }
+
+  @RoomMethod()
+  private async onToDuelist(client: Client, _msg: YGOProCtosHsToDuelist) {
+    // 游戏已经开始，不允许切换
+    if (this.duelStage !== DuelStage.Begin) {
+      return;
+    }
+
+    // 查找空位
+    const firstEmptyPlayerSlot = this.players.findIndex((p) => !p);
+    if (firstEmptyPlayerSlot < 0) {
+      // 没有空位
+      return;
+    }
+
+    if (client.pos === NetPlayerType.OBSERVER) {
+      // 从观战者切换到玩家
+      this.watchers.delete(client);
+
+      // 添加到玩家
+      this.players[firstEmptyPlayerSlot] = client;
+      client.pos = firstEmptyPlayerSlot;
+
+      // 发送 PlayerEnter 给所有人
+      const enterMsg = client.prepareEnterPacket();
+      this.allPlayers.forEach((p) => p.send(enterMsg));
+
+      // 发送 TypeChange 给客户端
+      await client.sendTypeChange();
+
+      // 发送观战者数量更新
+      this.allPlayers.forEach((p) => p.send(this.watcherSizeMessage));
+    } else if (this.isTag) {
+      // TAG 模式下，已经是玩家，切换到另一个空位
+      // 如果已经 ready，不允许切换
+      if (client.deck) {
+        return;
+      }
+
+      const oldPos = client.pos;
+
+      // 移动到新位置
+      this.players[oldPos] = undefined;
+      this.players[firstEmptyPlayerSlot] = client;
+      client.pos = firstEmptyPlayerSlot;
+
+      // 发送 PlayerChange 给所有人
+      const changeMsg = new YGOProStocHsPlayerChange().fromPartial({
+        playerPosition: oldPos,
+        playerState: firstEmptyPlayerSlot,
+      });
+      this.allPlayers.forEach((p) => p.send(changeMsg));
+
+      // 发送 TypeChange 给客户端
+      await client.sendTypeChange();
+    }
+  }
+
+  @RoomMethod()
+  private async onKick(client: Client, msg: YGOProCtosKick) {
+    // 游戏已经开始，不允许踢人
+    if (this.duelStage !== DuelStage.Begin) {
+      return;
+    }
+
+    // 只有 host 可以踢人
+    if (!client.isHost) {
+      return;
+    }
+
+    // 不能踢自己
+    if (client.pos === msg.pos) {
+      return;
+    }
+
+    // 获取要踢的玩家
+    const targetPlayer = this.players[msg.pos];
+    if (!targetPlayer) {
+      return;
+    }
+
+    // 踢出玩家
+    targetPlayer.disconnect();
+  }
+
+  @RoomMethod()
+  private async onUnready(client: Client, _msg: YGOProCtosHsNotReady) {
+    // 游戏已经开始，不允许取消准备
+    if (this.duelStage !== DuelStage.Begin) {
+      return;
+    }
+
+    // 只有玩家可以取消准备
+    if (client.pos === NetPlayerType.OBSERVER) {
+      return;
+    }
+
+    // 清除 deck
+    client.deck = undefined;
+    client.startDeck = undefined;
+
+    // 发送 PlayerChange 给所有人
+    const changeMsg = client.prepareChangePacket(PlayerChangeState.NOTREADY);
+    this.allPlayers.forEach((p) => p.send(changeMsg));
+  }
+
+  duelCount = 0;
+  firstgoPlayer?: Client;
+
+  private async toFirstGo(firstgoPos: number) {
+    this.firstgoPlayer = this.getPosPlayers(firstgoPos)[0];
+    this.duelStage = DuelStage.FirstGo;
+    this.firstgoPlayer.send(new YGOProStocSelectTp());
+  }
+
+  private async toFinger() {
+    this.duelStage = DuelStage.Finger;
+    const fingerPlayers = [0, 1].map((p) => this.getPosPlayers(p)[0]);
+    fingerPlayers.forEach((p) => {
+      p.send(new YGOProStocSelectHand());
+    });
+  }
+
+  async startGame(firstgoPos?: number) {
+    if (![DuelStage.Finger, DuelStage.Siding].includes(this.duelStage)) {
+      return false;
+    }
+    ++this.duelCount;
+    this.allPlayers.forEach((p) => p.send(new YGOProStocDuelStart()));
+    if (this.duelCount === 1) {
+      const displayCountDecks = [0, 1].map(
+        (p) => this.getPosPlayers(p)[0].deck,
+      );
+      const toDeckCount = (d: YGOProDeck) => {
+        const res = new YGOProStocDeckCount_DeckInfo();
+        res.main = d.main.length;
+        res.extra = d.extra.length;
+        res.side = d.side.length;
+        return res;
+      };
+      [0, 1].forEach((p) => {
+        const selfDeck = displayCountDecks[p];
+        const otherDeck = displayCountDecks[1 - p];
+        this.getPosPlayers(p).forEach((c) => {
+          c.send(
+            new YGOProStocDeckCount().fromPartial({
+              player0DeckCount: toDeckCount(selfDeck),
+              player1DeckCount: toDeckCount(otherDeck),
+            }),
+          );
+        });
+      });
+      this.watchers.forEach((c) => {
+        c.send(
+          new YGOProStocDeckCount().fromPartial({
+            player0DeckCount: toDeckCount(displayCountDecks[0]),
+            player1DeckCount: toDeckCount(displayCountDecks[1]),
+          }),
+        );
+      });
+    }
+    if (firstgoPos != null) {
+      await this.toFirstGo(firstgoPos);
+    } else {
+      this.duelStage = DuelStage.Finger;
+    }
+    return true;
   }
 }
