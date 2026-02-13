@@ -36,30 +36,26 @@ import { YGOProMessages, CardQuery } from 'ygopro-msg-encode';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
-// Serializable types for transport
+// Serializable types for transport (noParse mode: only send binary data)
 interface SerializableProcessResult {
   length: number;
   raw: Uint8Array;
   status: number;
-  messagePayload?: Uint8Array;
 }
 
 interface SerializableCardQueryResult {
   length: number;
   raw: Uint8Array;
-  cardPayload: Uint8Array | null;
 }
 
 interface SerializableFieldCardQueryResult {
   length: number;
   raw: Uint8Array;
-  cardsPayload: Uint8Array[];
 }
 
 interface SerializableFieldInfoResult {
   length: number;
   raw: Uint8Array;
-  fieldPayload: Uint8Array;
 }
 
 @DefineWorker()
@@ -204,32 +200,27 @@ export class OcgcoreWorker {
 
   @WorkerMethod()
   @TransportEncoder<OcgcoreProcessResult, SerializableProcessResult>(
-    (result) => {
-      // Re-parse from raw at encode time, so worker-side core calls can use noParse.
-      let messagePayload: Uint8Array | undefined;
-      if (result.raw.length > 0) {
-        try {
-          messagePayload = YGOProMessages.getInstanceFromPayload(
-            result.raw,
-          ).toPayload();
-        } catch {
-          messagePayload = undefined;
-        }
-      }
-      return {
-        length: result.length,
-        raw: result.raw,
-        status: result.status,
-        messagePayload,
-      };
-    },
+    // serialize in worker: only send raw
+    (result) => ({
+      length: result.length,
+      raw: result.raw,
+      status: result.status,
+    }),
+    // deserialize in main thread: re-parse from raw
     (serialized) => ({
       length: serialized.length,
       raw: serialized.raw,
       status: serialized.status,
-      message: serialized.messagePayload
-        ? YGOProMessages.getInstanceFromPayload(serialized.messagePayload)
-        : undefined,
+      message:
+        serialized.raw.length > 0
+          ? (() => {
+              try {
+                return YGOProMessages.getInstanceFromPayload(serialized.raw);
+              } catch {
+                return undefined;
+              }
+            })()
+          : undefined,
     }),
   )
   async process(): Promise<OcgcoreProcessResult> {
@@ -248,20 +239,16 @@ export class OcgcoreWorker {
 
   @WorkerMethod()
   @TransportEncoder<OcgcoreCardQueryResult, SerializableCardQueryResult>(
-    (result) => {
-      const card = parseCardQuery(result.raw, result.length);
-      return {
-        length: result.length,
-        raw: result.raw,
-        cardPayload: card ? card.toPayload() : null,
-      };
-    },
+    // serialize in worker: only send raw
+    (result) => ({
+      length: result.length,
+      raw: result.raw,
+    }),
+    // deserialize in main thread: re-parse from raw
     (serialized) => ({
       length: serialized.length,
       raw: serialized.raw,
-      card: serialized.cardPayload
-        ? new CardQuery().fromPayload(serialized.cardPayload)
-        : null,
+      card: parseCardQuery(serialized.raw, serialized.length),
     }),
   )
   async queryCard(
@@ -282,20 +269,16 @@ export class OcgcoreWorker {
     OcgcoreFieldCardQueryResult,
     SerializableFieldCardQueryResult
   >(
-    (result) => {
-      const cards = parseFieldCardQuery(result.raw, result.length);
-      return {
-        length: result.length,
-        raw: result.raw,
-        cardsPayload: cards.map((card) => card.toPayload()),
-      };
-    },
+    // serialize in worker: only send raw
+    (result) => ({
+      length: result.length,
+      raw: result.raw,
+    }),
+    // deserialize in main thread: re-parse from raw
     (serialized) => ({
       length: serialized.length,
       raw: serialized.raw,
-      cards: serialized.cardsPayload.map((payload) =>
-        new CardQuery().fromPayload(payload),
-      ),
+      cards: parseFieldCardQuery(serialized.raw, serialized.length),
     }),
   )
   async queryFieldCard(
@@ -306,17 +289,16 @@ export class OcgcoreWorker {
 
   @WorkerMethod()
   @TransportEncoder<OcgcoreFieldInfoResult, SerializableFieldInfoResult>(
+    // serialize in worker: only send raw
     (result) => ({
       length: result.length,
       raw: result.raw,
-      fieldPayload: parseFieldInfo(result.raw).toPayload(),
     }),
+    // deserialize in main thread: re-parse from raw
     (serialized) => ({
       length: serialized.length,
       raw: serialized.raw,
-      field: YGOProMessages.getInstanceFromPayload(
-        serialized.fieldPayload,
-      ) as any,
+      field: parseFieldInfo(serialized.raw),
     }),
   )
   async queryFieldInfo(): Promise<OcgcoreFieldInfoResult> {
@@ -325,33 +307,29 @@ export class OcgcoreWorker {
 
   @WorkerMethod()
   @TransportEncoder<OcgcoreProcessResult[], SerializableProcessResult[]>(
+    // serialize in worker: only send raw
     (results) =>
-      results.map((result) => {
-        let messagePayload: Uint8Array | undefined;
-        if (result.raw.length > 0) {
-          try {
-            messagePayload = YGOProMessages.getInstanceFromPayload(
-              result.raw,
-            ).toPayload();
-          } catch {
-            messagePayload = undefined;
-          }
-        }
-        return {
-          length: result.length,
-          raw: result.raw,
-          status: result.status,
-          messagePayload,
-        };
-      }),
+      results.map((result) => ({
+        length: result.length,
+        raw: result.raw,
+        status: result.status,
+      })),
+    // deserialize in main thread: re-parse from raw
     (serializedArray) =>
       serializedArray.map((serialized) => ({
         length: serialized.length,
         raw: serialized.raw,
         status: serialized.status,
-        message: serialized.messagePayload
-          ? YGOProMessages.getInstanceFromPayload(serialized.messagePayload)
-          : undefined,
+        message:
+          serialized.raw.length > 0
+            ? (() => {
+                try {
+                  return YGOProMessages.getInstanceFromPayload(serialized.raw);
+                } catch {
+                  return undefined;
+                }
+              })()
+            : undefined,
       })),
   )
   async advance(): Promise<OcgcoreProcessResult[]> {
