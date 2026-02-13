@@ -48,6 +48,7 @@ import {
   CardQuery,
   YGOProCtosResponse,
   YGOProCtosSurrender,
+  YGOProMsgWaiting,
 } from 'ygopro-msg-encode';
 import { DefaultHostInfoProvider } from './default-hostinfo-provder';
 import {
@@ -82,6 +83,7 @@ import {
   getZoneQueryFlag,
   splitRefreshLocations,
 } from '../utility/refresh-query';
+import { shuffleDecksBySeed } from '../utility/shuffle-decks-by-seed';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -163,6 +165,7 @@ export class Room {
     if (this.hostinfo.lflist >= 0) {
       this.lflist = (await this.findLFList()) || blankLFList;
     }
+    this.logger.debug({ winMatchCount: this.winMatchCount }, 'Match win count');
     return this;
   }
 
@@ -940,6 +943,16 @@ export class Room {
         };
       });
     }
+    if (!this.hostinfo.no_shuffle_deck) {
+      const shuffledDecks = shuffleDecksBySeed(
+        duelRecord.players.map((p) => p.deck),
+        duelRecord.seed,
+      );
+      duelRecord.players = duelRecord.players.map((player, index) => ({
+        ...player,
+        deck: shuffledDecks[index],
+      }));
+    }
     this.duelRecords.push(duelRecord);
 
     const extraScriptPaths = [
@@ -968,6 +981,10 @@ export class Room {
       registry[`player_name_${i}`] = player.name;
     });
 
+    this.logger.debug(
+      { seed: duelRecord.seed, registry, hostinfo: this.hostinfo },
+      'Initializing OCGCoreWorker',
+    );
     this.ocgcore = await initWorker(OcgcoreWorker, {
       seed: duelRecord.seed,
       hostinfo: this.hostinfo,
@@ -1150,6 +1167,9 @@ export class Room {
   }
 
   private async routeGameMsg(message: YGOProMsgBase) {
+    if (!message) {
+      return;
+    }
     const sendTargets = message.getSendTargets();
     const sendGameMsg = (c: Client, msg: YGOProMsgBase) =>
       c.send(new YGOProStocGameMsg().fromPartial({ msg }));
@@ -1175,6 +1195,12 @@ export class Room {
         }
       }),
     );
+    if (
+      message instanceof YGOProMsgUpdateData ||
+      message instanceof YGOProMsgUpdateCard
+    ) {
+      return;
+    }
     await Promise.all([
       ...message.getRequireRefreshCards().map((loc) => this.refreshSingle(loc)),
       ...message
@@ -1184,14 +1210,20 @@ export class Room {
   }
 
   private async handleGameMsg(message: YGOProMsgBase, route = false) {
-    await this.localGameMsgDispatcher.dispatch(message);
-    await this.ctx.dispatch(message, this.getOpreatingPlayer(this.turnPos));
-    if (!route) {
-      await this.routeGameMsg(message);
+    const msg1 = await this.localGameMsgDispatcher.dispatch(message);
+    const msg2 = await this.ctx.dispatch(
+      msg1,
+      this.getOpreatingPlayer(this.turnPos),
+    );
+    if (route) {
+      await this.routeGameMsg(msg2);
     }
+    return msg2;
   }
 
-  localGameMsgDispatcher = new ProtoMiddlewareDispatcher()
+  localGameMsgDispatcher = new ProtoMiddlewareDispatcher({
+    acceptResult: () => true,
+  })
     .middleware(YGOProMsgBase, async (message, next) => {
       this.logger.debug(
         { msgName: message.constructor.name },
@@ -1239,11 +1271,33 @@ export class Room {
       YGOProMsgResponseBase,
       async (message, next) => {
         this.responsePos = message.responsePlayer();
+        const op = this.getOpreatingPlayer(this.responsePos);
+        const noOps = this.playingPlayers.filter((p) => p !== op);
+        await Promise.all(
+          noOps.map((p) =>
+            p.send(
+              new YGOProStocGameMsg().fromPartial({
+                msg: new YGOProMsgWaiting(),
+              }),
+            ),
+          ),
+        );
         // TODO: set timer
         return next();
       },
       true,
-    );
+    )
+    .middleware(YGOProMsgRetry, async (message, next) => {
+      if (this.responsePos != null) {
+        const op = this.getOpreatingPlayer(this.responsePos);
+        await op.send(
+          new YGOProStocGameMsg().fromPartial({
+            msg: message,
+          }),
+        );
+      }
+      return next();
+    });
 
   private pendingResponse?: Buffer;
   private responsePos?: number;
@@ -1265,11 +1319,11 @@ export class Room {
           }
         }
 
-        await this.handleGameMsg(message);
-        if (message instanceof YGOProMsgWin) {
-          return this.win(message);
+        const handled = await this.handleGameMsg(message);
+        if (handled instanceof YGOProMsgWin) {
+          return this.win(handled);
         }
-        await this.routeGameMsg(message);
+        await this.routeGameMsg(handled);
       }
     } catch (e) {
       this.logger.warn({ error: e }, 'Error while advancing ocgcore');

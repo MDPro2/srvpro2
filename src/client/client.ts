@@ -87,7 +87,7 @@ export abstract class Client {
         await this._send(Buffer.from(data.toFullPayload()));
       } catch (e) {
         this.logger.warn(
-          { ip: this.loggingIp(), error: (e as Error).message },
+          { ip: this.loggingIp(), error: (e as Error).stack },
           `Failed to send message: ${(e as Error).message}`,
         );
       }
