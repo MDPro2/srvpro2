@@ -15,4 +15,5 @@ export const TransportModule = createAppContext<ContextState>()
   .provide(I18nService)
   .provide(ClientHandler)
   .provide(TcpServer)
-  .provide(WsServer);
+  .provide(WsServer)
+  .define();
