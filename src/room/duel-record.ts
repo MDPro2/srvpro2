@@ -1,6 +1,7 @@
 import YGOProDeck from 'ygopro-deck-encode';
 import { YGOProYrp, ReplayHeader } from 'ygopro-yrp-encode';
 import { Room } from './room';
+import { YGOProMsgBase } from 'ygopro-msg-encode';
 
 // Constants from ygopro
 const REPLAY_COMPRESSED = 0x1;
@@ -17,6 +18,7 @@ export class DuelRecord {
   date = new Date();
   winPosition?: number;
   responses: Buffer[] = [];
+  messages: YGOProMsgBase[] = [];
 
   toYrp(room: Room) {
     const isTag = room.isTag;

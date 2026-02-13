@@ -9,7 +9,6 @@ export class OcgcoreWorkerOptions {
   hostinfo: HostInfo;
   @TransportType(() => [YGOProDeck])
   decks: YGOProDeck[];
-  isTag?: boolean;
-  playerNames?: string[];
-  registry?: Record<string, string>;
+  isTag: boolean;
+  registry: Record<string, string>;
 }

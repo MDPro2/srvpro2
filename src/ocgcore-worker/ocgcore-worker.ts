@@ -32,7 +32,7 @@ import { OcgcoreWorkerOptions } from './ocgcore-worker-options';
 import { Subject } from 'rxjs';
 import { calculateDuelOptions } from '../utility/calculate-duel-options';
 import initSqlJs from 'sql.js';
-import { YGOProMessages, OcgcoreCommonConstants } from 'ygopro-msg-encode';
+import { YGOProMessages } from 'ygopro-msg-encode';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -305,43 +305,17 @@ export class OcgcoreWorker {
     return this.duel.queryFieldInfo({ noParse: true });
   }
 
-  @WorkerMethod()
-  @TransportEncoder<OcgcoreProcessResult[], SerializableProcessResult[]>(
-    // serialize in worker: only send raw
-    (results) =>
-      results.map((result) => ({
-        length: result.length,
-        raw: result.raw,
-        status: result.status,
-      })),
-    // deserialize in main thread: re-parse from raw
-    (serializedArray) =>
-      serializedArray.map((serialized) => ({
-        length: serialized.length,
-        raw: serialized.raw,
-        status: serialized.status,
-        message:
-          serialized.raw.length > 0
-            ? (() => {
-                try {
-                  return YGOProMessages.getInstanceFromPayload(serialized.raw);
-                } catch {
-                  return undefined;
-                }
-              })()
-            : undefined,
-      })),
-  )
-  async advance(): Promise<OcgcoreProcessResult[]> {
-    const results: OcgcoreProcessResult[] = [];
+  async *advance() {
     while (true) {
-      const res = this.duel.process({ noParse: true });
-      results.push(res);
+      const res = await this.process();
+      if (!res.raw.length) {
+        continue;
+      }
+      yield res;
       if (res.status > 0) {
         break;
       }
     }
-    return results;
   }
 
   @WorkerMethod()

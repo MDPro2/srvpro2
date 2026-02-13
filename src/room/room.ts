@@ -1,4 +1,4 @@
-import { Awaitable } from 'nfkit';
+import { Awaitable, ProtoMiddlewareDispatcher } from 'nfkit';
 import { Context } from '../app';
 import BetterLock from 'better-lock';
 import {
@@ -35,9 +35,25 @@ import {
   YGOProCtosHandResult,
   YGOProStocHandResult,
   HandResult,
+  YGOProMsgStart,
+  YGOProMsgNewTurn,
+  YGOProMsgNewPhase,
+  YGOProMsgBase,
+  YGOProMsgResponseBase,
+  YGOProMsgRetry,
+  RequireQueryLocation,
+  RequireQueryCardLocation,
+  YGOProMsgUpdateData,
+  YGOProMsgUpdateCard,
+  CardQuery,
+  YGOProCtosResponse,
 } from 'ygopro-msg-encode';
 import { DefaultHostInfoProvider } from './default-hostinfo-provder';
-import { CardReaderFinalized } from 'koishipro-core.js';
+import {
+  CardReaderFinalized,
+  OcgcoreMessageType,
+  _OcgcoreConstants,
+} from 'koishipro-core.js';
 import { YGOProResourceLoader } from './ygopro-resource-loader';
 import { blankLFList } from '../utility/blank-lflist';
 import { calculateDuelOptions } from '../utility/calculate-duel-options';
@@ -59,6 +75,14 @@ import { checkDeck, checkChangeSide } from '../utility/check-deck';
 import { DuelRecord } from './duel-record';
 import { generateSeed } from '../utility/generate-seed';
 import { OnRoomDuelStart } from './room-event/on-room-duel-start';
+import { OcgcoreWorker } from '../ocgcore-worker/ocgcore-worker';
+import { initWorker } from 'yuzuthread';
+import {
+  getZoneQueryFlag,
+  splitRefreshLocations,
+} from '../utility/refresh-query';
+
+const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
 export type RoomFinalizor = (self: Room) => Awaitable<any>;
 
@@ -231,7 +255,7 @@ export class Room {
   }
 
   isPosSwapped = false;
-  getSwappedPos(clientOrPos: Client | number) {
+  getIngamePos(clientOrPos: Client | number) {
     const pos = this.resolvePos(clientOrPos);
     if (pos === NetPlayerType.OBSERVER || !this.isPosSwapped) {
       return pos;
@@ -239,16 +263,16 @@ export class Room {
     return pos ^ (0x1 << this.teamOffsetBit);
   }
 
-  getSwappedDuelPosByDuelPos(duelPos: number) {
+  getIngameDuelPosByDuelPos(duelPos: number) {
     if ([0, 1].includes(duelPos) && this.isPosSwapped) {
       return 1 - duelPos;
     }
     return duelPos;
   }
 
-  getSwappedDuelPos(clientOrPos: Client | number) {
+  getIngameDuelPos(clientOrPos: Client | number) {
     const duelPos = this.getDuelPos(clientOrPos);
-    return this.getSwappedDuelPosByDuelPos(duelPos);
+    return this.getIngameDuelPosByDuelPos(duelPos);
   }
 
   getDuelPosPlayers(duelPos: number) {
@@ -256,6 +280,11 @@ export class Room {
       return [...this.watchers];
     }
     return this.playingPlayers.filter((p) => this.getDuelPos(p) === duelPos);
+  }
+
+  getIngameDuelPosPlayers(duelPos: number) {
+    const swappedDuelPos = this.getIngameDuelPosByDuelPos(duelPos);
+    return this.getDuelPosPlayers(swappedDuelPos);
   }
 
   async join(client: Client) {
@@ -341,13 +370,17 @@ export class Room {
     }
   }
 
+  get lastDuelRecord() {
+    return this.duelRecords[this.duelRecords.length - 1];
+  }
+
   async win(winMsg: Partial<YGOProMsgWin>, forceWinMatch = false) {
     if (this.duelStage === DuelStage.Siding) {
       this.playingPlayers
         .filter((p) => !p.deck)
         .forEach((p) => p.send(new YGOProStocDuelStart()));
     }
-    const duelPos = this.getSwappedDuelPosByDuelPos(winMsg.player!);
+    const duelPos = this.getIngameDuelPosByDuelPos(winMsg.player!);
     this.isPosSwapped = false;
     await Promise.all(
       this.allPlayers.map((p) =>
@@ -362,7 +395,7 @@ export class Room {
       ...winMsg,
       player: duelPos,
     });
-    const lastDuelRecord = this.duelRecords[this.duelRecords.length - 1];
+    const lastDuelRecord = this.lastDuelRecord;
     if (lastDuelRecord) {
       lastDuelRecord.winPosition = duelPos;
     }
@@ -418,7 +451,7 @@ export class Room {
     } else {
       this.score[this.getDuelPos(client)] = -9;
       await this.win(
-        { player: this.getSwappedDuelPos(client), type: 0x4 },
+        { player: this.getIngameDuelPos(client), type: 0x4 },
         true,
       );
     }
@@ -723,7 +756,7 @@ export class Room {
 
   @RoomMethod()
   private async onChat(client: Client, msg: YGOProCtosChat) {
-    return this.sendChat(msg.msg, this.getSwappedPos(client));
+    return this.sendChat(msg.msg, this.getIngamePos(client));
   }
 
   async sendChat(msg: string, type: number = ChatColor.BABYBLUE) {
@@ -872,6 +905,12 @@ export class Room {
     return true;
   }
 
+  private ocgcore?: OcgcoreWorker;
+  private registry: Record<string, string> = {};
+  turnCount = 0;
+  turnPos = 0;
+  phase = undefined;
+
   @RoomMethod({ allowInDuelStages: DuelStage.FirstGo })
   private async onDuelStart(client: Client, msg: YGOProCtosTpResult) {
     if (client !== this.firstgoPlayer) {
@@ -885,7 +924,7 @@ export class Room {
     );
     if (this.isPosSwapped) {
       this.playingPlayers.forEach((p) => {
-        duelRecord.players[this.getSwappedDuelPos(p)] = {
+        duelRecord.players[this.getIngameDuelPos(p)] = {
           name: p.name,
           deck: p.deck!,
         };
@@ -893,12 +932,339 @@ export class Room {
     }
     this.duelRecords.push(duelRecord);
 
+    const extraScriptPaths = [
+      './script/patches/entry.lua',
+      './script/special.lua',
+      './script/init.lua',
+      ...this.resourceLoader.extraScriptPaths,
+    ];
+
+    const isMatchMode = this.winMatchCount > 1;
+    const duelMode = this.isTag ? 'tag' : isMatchMode ? 'match' : 'single';
+    const registry: Record<string, string> = {
+      ...this.registry,
+      duel_mode: duelMode,
+      start_lp: String(this.hostinfo.start_lp),
+      start_hand: String(this.hostinfo.start_hand),
+      draw_count: String(this.hostinfo.draw_count),
+      player_type_0: this.isPosSwapped ? '1' : '0',
+      player_type_1: this.isPosSwapped ? '0' : '1',
+    };
+    if (isMatchMode) {
+      // Match mode uses completed duel count in gframe (before current duel result).
+      registry.duel_count = String(this.duelRecords.length - 1);
+    }
+    duelRecord.players.forEach((player, i) => {
+      registry[`player_name_${i}`] = player.name;
+    });
+
+    this.ocgcore = await initWorker(OcgcoreWorker, {
+      seed: duelRecord.seed,
+      hostinfo: this.hostinfo,
+      ygoproPaths: this.resourceLoader.ygoproPaths,
+      extraScriptPaths,
+      registry,
+      decks: duelRecord.players.map((p) => p.deck),
+      isTag: this.isTag,
+    });
+
+    const [
+      player0DeckCount,
+      player0ExtraCount,
+      player1DeckCount,
+      player1ExtraCount,
+    ] = await Promise.all([
+      this.ocgcore.queryFieldCount({
+        player: 0,
+        location: OcgcoreScriptConstants.LOCATION_DECK,
+      }),
+      this.ocgcore.queryFieldCount({
+        player: 0,
+        location: OcgcoreScriptConstants.LOCATION_EXTRA,
+      }),
+      this.ocgcore.queryFieldCount({
+        player: 1,
+        location: OcgcoreScriptConstants.LOCATION_DECK,
+      }),
+      this.ocgcore.queryFieldCount({
+        player: 1,
+        location: OcgcoreScriptConstants.LOCATION_EXTRA,
+      }),
+    ]);
+
+    const createStartMsg = (playerType: number) =>
+      new YGOProStocGameMsg().fromPartial({
+        msg: new YGOProMsgStart().fromPartial({
+          playerType,
+          duelRule: this.hostinfo.duel_rule,
+          startLp0: this.hostinfo.start_lp,
+          startLp1: this.hostinfo.start_lp,
+          player0: {
+            deckCount: player0DeckCount,
+            extraCount: player0ExtraCount,
+          },
+          player1: {
+            deckCount: player1DeckCount,
+            extraCount: player1ExtraCount,
+          },
+        }),
+      });
+
+    const duelPos0Clients = this.getIngameDuelPosPlayers(0);
+    const duelPos1Clients = this.getIngameDuelPosPlayers(1);
+    const watcherMsg = createStartMsg(this.isPosSwapped ? 0x11 : 0x10);
+    await Promise.all([
+      ...duelPos0Clients.map((p) => p.send(createStartMsg(0))),
+      ...duelPos1Clients.map((p) => p.send(createStartMsg(1))),
+      ...[...this.watchers].map((p) => p.send(watcherMsg)),
+    ]);
+
+    this.duelStage = DuelStage.Dueling;
+
+    this.ocgcore.message$.subscribe((msg) => {
+      if (
+        msg.type === OcgcoreMessageType.DebugMessage &&
+        !this.ctx.getConfig('OCGCORE_DEBUG_LOG', '')
+      ) {
+        return;
+      }
+      this.allPlayers.forEach((p) => p.sendChat(`Debug: ${msg.message}`));
+    });
+    this.ocgcore.registry$.subscribe((registry) => {
+      Object.assign(this.registry, registry);
+    });
+
+    this.turnCount = 0;
+    this.turnPos = 0;
+    this.phase = undefined;
+
+    await this.handleGameMsg(watcherMsg.msg);
     await this.ctx.dispatch(
       new OnRoomDuelStart(this),
-      this.getDuelPosPlayers(this.getSwappedDuelPos(0))[0],
+      this.getOpreatingPlayer(this.turnPos),
     );
 
-    this.allPlayers.forEach((p) => p.sendChat('TODO: duel start'));
-    return this.finalize();
+    return this.advance();
+  }
+
+  private async onNewTurn(tp: number) {
+    ++this.turnCount;
+    this.turnPos = tp;
+  }
+
+  private async onNewPhase(phase: number) {
+    this.phase = phase;
+  }
+
+  getOpreatingPlayer(duelPos: number): Client | undefined {
+    const players = this.getIngameDuelPosPlayers(duelPos);
+    if (!this.isTag) {
+      return players[0];
+    }
+    if (players.length === 1) {
+      return players[0];
+    }
+
+    // tag_duel.cpp cur_player equivalent, computed from turnCount:
+    // duelPos 0: start from players[0], toggle every two turns from turn 3
+    // duelPos 1: start from players[1], toggle every two turns from turn 2
+    const tc = Math.max(0, this.turnCount);
+    if (duelPos === 0) {
+      const idx = Math.floor(Math.max(0, tc - 1) / 2) % 2;
+      return players[idx];
+    }
+    if (duelPos === 1) {
+      const idx = 1 - (Math.floor(tc / 2) % 2);
+      return players[idx];
+    }
+
+    return players[0];
+  }
+
+  private async refreshLocations(refresh: RequireQueryLocation) {
+    if (!this.ocgcore) {
+      return;
+    }
+    const locations = splitRefreshLocations(refresh.location);
+    for (const location of locations) {
+      const { cards } = await this.ocgcore.queryFieldCard({
+        player: refresh.player,
+        location,
+        queryFlag: getZoneQueryFlag(location),
+        useCache: 1,
+      });
+      await this.handleGameMsg(
+        new YGOProMsgUpdateData().fromPartial({
+          player: refresh.player,
+          location,
+          cards: cards ?? [],
+        }),
+        true,
+      );
+    }
+  }
+
+  private async refreshSingle(refresh: RequireQueryCardLocation) {
+    if (!this.ocgcore) {
+      return;
+    }
+    const locations = splitRefreshLocations(refresh.location);
+    for (const location of locations) {
+      const { card } = await this.ocgcore.queryCard({
+        player: refresh.player,
+        location,
+        sequence: refresh.sequence,
+        queryFlag:
+          0xf81fff |
+          OcgcoreCommonConstants.QUERY_CODE |
+          OcgcoreCommonConstants.QUERY_POSITION,
+        useCache: 0,
+      });
+      await this.handleGameMsg(
+        new YGOProMsgUpdateCard().fromPartial({
+          controller: refresh.player,
+          location,
+          sequence: refresh.sequence,
+          card:
+            card ??
+            (() => {
+              const empty = new CardQuery();
+              empty.flags = 0;
+              empty.empty = true;
+              return empty;
+            })(),
+        }),
+        true,
+      );
+    }
+  }
+
+  private async routeGameMsg(message: YGOProMsgBase) {
+    const sendTargets = message.getSendTargets();
+    const sendGameMsg = (c: Client, msg: YGOProMsgBase) =>
+      c.send(new YGOProStocGameMsg().fromPartial({ msg }));
+    await Promise.all(
+      sendTargets.map(async (pos) => {
+        if (pos === NetPlayerType.OBSERVER) {
+          const observerView = message.observerView();
+          await Promise.all(
+            [...this.watchers].map((w) => sendGameMsg(w, observerView)),
+          );
+        } else {
+          const playerView = message.playerView(pos);
+          const players = this.getIngameDuelPosPlayers(pos);
+          const operatingPlayer = this.getOpreatingPlayer(pos);
+          await Promise.all(
+            players.map((c) =>
+              sendGameMsg(
+                c,
+                c === operatingPlayer ? playerView : playerView.teammateView(),
+              ),
+            ),
+          );
+        }
+      }),
+    );
+    await Promise.all([
+      ...message.getRequireRefreshCards().map((loc) => this.refreshSingle(loc)),
+      ...message
+        .getRequireRefreshZones()
+        .map((loc) => this.refreshLocations(loc)),
+    ]);
+  }
+
+  private async handleGameMsg(message: YGOProMsgBase, route = false) {
+    await this.localGameMsgDispatcher.dispatch(message);
+    await this.ctx.dispatch(message, this.getOpreatingPlayer(this.turnPos));
+    if (!route) {
+      await this.routeGameMsg(message);
+    }
+  }
+
+  localGameMsgDispatcher = new ProtoMiddlewareDispatcher()
+    .middleware(YGOProMsgNewTurn, async (message, next) => {
+      // check new turn
+      const player = message.player;
+      if (!(player & 0x2)) {
+        await this.onNewTurn(player & 0x1);
+      }
+      return next();
+    })
+    .middleware(YGOProMsgNewPhase, async (message, next) => {
+      // check new phase
+      await this.onNewPhase(message.phase);
+      return next();
+    })
+    .middleware(YGOProMsgBase, async (message, next) => {
+      // record messages for replay
+      if (!(message instanceof YGOProMsgResponseBase)) {
+        this.lastDuelRecord.messages.push(message);
+      }
+      return next();
+    })
+    .middleware(YGOProMsgBase, async (message, next) => {
+      //
+      if (this.pendingResponse && !(message instanceof YGOProMsgRetry)) {
+        // player made valid response
+        const resp = this.pendingResponse;
+        this.pendingResponse = undefined;
+        this.lastDuelRecord.responses.push(resp);
+
+        // TODO: clear timer
+      }
+      return next();
+    })
+    .middleware(YGOProMsgResponseBase, async (message, next) => {
+      this.responsePos = message.responsePlayer();
+      // TODO: set timer
+      return next();
+    });
+
+  private pendingResponse?: Buffer;
+  private responsePos?: number;
+
+  private async advance() {
+    if (!this.ocgcore) {
+      return;
+    }
+
+    try {
+      for await (const { status, message } of this.ocgcore.advance()) {
+        if (!message) {
+          this.logger.warn({ message }, 'Received empty message from ocgcore');
+          if (status) {
+            throw new Error(
+              'Cannot continue ocgcore because received empty message with non-advancing status ' +
+                status,
+            );
+          }
+        }
+        await this.handleGameMsg(message);
+        if (message instanceof YGOProMsgWin) {
+          return this.win(message);
+        }
+        await this.routeGameMsg(message);
+      }
+    } catch (e) {
+      this.logger.warn({ error: e }, 'Error while advancing ocgcore');
+      return this.finalize();
+    }
+  }
+
+  @RoomMethod({
+    allowInDuelStages: DuelStage.Dueling,
+  })
+  private async onResponse(client: Client, msg: YGOProCtosResponse) {
+    if (
+      this.responsePos == null ||
+      client !== this.getOpreatingPlayer(this.responsePos) ||
+      !this.ocgcore
+    ) {
+      return;
+    }
+    this.pendingResponse = Buffer.from(msg.response);
+    this.responsePos = undefined;
+    await this.ocgcore.setResponse(msg.response);
+    return this.advance();
   }
 }

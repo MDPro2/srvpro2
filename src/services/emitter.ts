@@ -1,7 +1,7 @@
 import { AppContext, ProtoMiddlewareDispatcher } from 'nfkit';
 import { Client } from '../client/client';
 
-export class Emitter extends ProtoMiddlewareDispatcher<[Client]> {
+export class Emitter extends ProtoMiddlewareDispatcher<[client: Client]> {
   constructor(private ctx: AppContext) {
     super({
       acceptResult: () => true,
