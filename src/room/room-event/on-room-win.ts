@@ -1,10 +1,11 @@
+import { YGOProMsgWin } from 'ygopro-msg-encode';
 import { Room } from '../room';
 import { RoomEvent } from './room-event';
 
 export class OnRoomWin extends RoomEvent {
   constructor(
     room: Room,
-    public winPos: number,
+    public winMsg: YGOProMsgWin,
     public winMatch = false,
   ) {
     super(room);

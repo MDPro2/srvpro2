@@ -18,6 +18,7 @@ import {
   YGOProStocSelectHand,
   ChatColor,
   YGOProCtosChat,
+  YGOProMsgWin,
 } from 'ygopro-msg-encode';
 import { DefaultHostInfoProvider } from './default-hostinfo-provder';
 import { CardReaderFinalized } from 'koishipro-core.js';
@@ -56,10 +57,10 @@ export class Room {
     return this.hostinfo.mode === 2;
   }
 
-  players = new Array<Client>(this.hostinfo.mode === 2 ? 4 : 2);
+  players = new Array<Client | undefined>(this.hostinfo.mode === 2 ? 4 : 2);
   watchers = new Set<Client>();
   get playingPlayers() {
-    return this.players.filter((p) => p);
+    return this.players.filter((p) => p) as Client[];
   }
   get allPlayers() {
     return [...this.playingPlayers, ...this.watchers];
@@ -192,7 +193,19 @@ export class Room {
     return pos ^ (0x1 << this.teamOffsetBit);
   }
 
-  getPosPlayers(duelPos: number) {
+  getSwappedDuelPosByDuelPos(duelPos: number) {
+    if ([0, 1].includes(duelPos) && this.isPosSwapped) {
+      return 1 - duelPos;
+    }
+    return duelPos;
+  }
+
+  getSwappedDuelPos(clientOrPos: Client | number) {
+    const duelPos = this.getDuelPos(clientOrPos);
+    return this.getSwappedDuelPosByDuelPos(duelPos);
+  }
+
+  getDuelPosPlayers(duelPos: number) {
     if (duelPos === NetPlayerType.OBSERVER) {
       return [...this.watchers];
     }
@@ -248,17 +261,22 @@ export class Room {
   duelStage = DuelStage.Begin;
   score = [0, 0];
 
-  async win(duelPos: number, winMatch = false) {
+  async win(winMsg: Partial<YGOProMsgWin>, winMatch = false) {
     if (this.duelStage === DuelStage.Siding) {
       this.playingPlayers
         .filter((p) => p.deck)
         .forEach((p) => p.send(new YGOProStocDuelStart()));
     }
-    ++this.score[duelPos];
+    const duelPos = this.getSwappedDuelPosByDuelPos(winMsg.player!);
+    const exactWinMsg = new YGOProMsgWin().fromPartial({
+      ...winMsg,
+      player: duelPos,
+    });
+    ++this.score[this.getSwappedPos(exactWinMsg.player)];
     // TODO: next game or finalize
     await this.ctx.dispatch(
-      new OnRoomWin(this, duelPos, winMatch),
-      this.getPosPlayers(duelPos)[0],
+      new OnRoomWin(this, exactWinMsg, winMatch),
+      this.getDuelPosPlayers(duelPos)[0],
     );
   }
 
@@ -279,7 +297,10 @@ export class Room {
       });
     } else {
       this.score[this.getDuelPos(client)] = -9;
-      await this.win(this.getDuelPos(client), true);
+      await this.win(
+        { player: this.getSwappedDuelPos(client), type: 0x4 },
+        true,
+      );
     }
     if (client.isHost) {
       const nextHost = this.allPlayers.find((p) => p !== client);
@@ -467,14 +488,14 @@ export class Room {
   firstgoPlayer?: Client;
 
   private async toFirstGo(firstgoPos: number) {
-    this.firstgoPlayer = this.getPosPlayers(firstgoPos)[0];
+    this.firstgoPlayer = this.getDuelPosPlayers(firstgoPos)[0];
     this.duelStage = DuelStage.FirstGo;
     this.firstgoPlayer.send(new YGOProStocSelectTp());
   }
 
   private async toFinger() {
     this.duelStage = DuelStage.Finger;
-    const fingerPlayers = [0, 1].map((p) => this.getPosPlayers(p)[0]);
+    const fingerPlayers = [0, 1].map((p) => this.getDuelPosPlayers(p)[0]);
     fingerPlayers.forEach((p) => {
       p.send(new YGOProStocSelectHand());
     });
@@ -485,10 +506,10 @@ export class Room {
       return false;
     }
     ++this.duelCount;
-    this.allPlayers.forEach((p) => p.send(new YGOProStocDuelStart()));
     if (this.duelCount === 1) {
+      this.allPlayers.forEach((p) => p.send(new YGOProStocDuelStart()));
       const displayCountDecks = [0, 1].map(
-        (p) => this.getPosPlayers(p)[0].deck,
+        (p) => this.getDuelPosPlayers(p)[0].deck!,
       );
       const toDeckCount = (d: YGOProDeck) => {
         const res = new YGOProStocDeckCount_DeckInfo();
@@ -500,7 +521,7 @@ export class Room {
       [0, 1].forEach((p) => {
         const selfDeck = displayCountDecks[p];
         const otherDeck = displayCountDecks[1 - p];
-        this.getPosPlayers(p).forEach((c) => {
+        this.getDuelPosPlayers(p).forEach((c) => {
           c.send(
             new YGOProStocDeckCount().fromPartial({
               player0DeckCount: toDeckCount(selfDeck),
