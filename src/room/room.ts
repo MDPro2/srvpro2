@@ -19,6 +19,14 @@ import {
   ChatColor,
   YGOProCtosChat,
   YGOProMsgWin,
+  YGOProCtosUpdateDeck,
+  OcgcoreCommonConstants,
+  YGOProStocErrorMsg,
+  YGOProStocGameMsg,
+  YGOProStocReplay,
+  YGOProStocDuelEnd,
+  YGOProStocChangeSide,
+  YGOProStocWaitingSide,
 } from 'ygopro-msg-encode';
 import { DefaultHostInfoProvider } from './default-hostinfo-provder';
 import { CardReaderFinalized } from 'koishipro-core.js';
@@ -39,6 +47,9 @@ import { OnRoomMatchStart } from './room-event/on-room-match-start';
 import { OnRoomGameStart } from './room-event/on-room-game-start';
 // import { OnRoomDuelStart } from './room-event/on-room-duel-start'; // 备用事件，暂未使用
 import YGOProDeck from 'ygopro-deck-encode';
+import { checkDeck, checkChangeSide } from '../utility/check-deck';
+import { DuelRecord } from './duel-record';
+import { last } from 'rxjs';
 
 export type RoomFinalizor = (self: Room) => Awaitable<any>;
 
@@ -53,8 +64,27 @@ export class Room {
     .get(() => DefaultHostInfoProvider)
     .parseHostinfo(this.name, this.partialHostinfo);
 
+  get winMatchCount() {
+    const firstbit = this.hostinfo.mode & 0x1;
+    const remainingBits = (this.hostinfo.mode & 0xfc) >>> 1;
+    return (firstbit | remainingBits) + 1;
+  }
+
   get isTag() {
     return this.hostinfo.mode === 2;
+  }
+
+  get opt() {
+    const DUEL_PSEUDO_SHUFFLE = 16;
+    const DUEL_TAG_MODE = 32;
+    let opt = 0;
+    if (this.hostinfo.no_shuffle_deck) {
+      opt |= DUEL_PSEUDO_SHUFFLE;
+    }
+    if (this.isTag) {
+      opt |= DUEL_TAG_MODE;
+    }
+    return opt;
   }
 
   players = new Array<Client | undefined>(this.hostinfo.mode === 2 ? 4 : 2);
@@ -99,17 +129,21 @@ export class Room {
     return this;
   }
 
-  private finalizors: RoomFinalizor[] = [
-    () => {
-      this.allPlayers.forEach((p) => {
-        p.disconnect();
+  private async cleanPlayers(sendDuelEnd = false) {
+    await Promise.all([
+      ...this.allPlayers.map(async (p) => {
+        await this.kick(p, sendDuelEnd);
         if (p.pos < NetPlayerType.OBSERVER) {
           this.players[p.pos] = undefined;
         }
-      });
-      this.watchers.clear();
-    },
-  ];
+      }),
+      Promise.all(
+        [...this.watchers].map(async (p) => await this.kick(p, sendDuelEnd)),
+      ).then(() => this.watchers.clear()),
+    ]);
+  }
+
+  private finalizors: RoomFinalizor[] = [() => this.cleanPlayers()];
 
   addFinalizor(finalizor: RoomFinalizor, atEnd = false) {
     if (atEnd) {
@@ -259,29 +293,102 @@ export class Room {
   }
 
   duelStage = DuelStage.Begin;
-  score = [0, 0];
+  duelRecords: DuelRecord[] = [];
+  get score() {
+    return [0, 1].map(
+      (p) => this.duelRecords.filter((d) => d.winPosition === p).length,
+    );
+  }
 
-  async win(winMsg: Partial<YGOProMsgWin>, winMatch = false) {
+  async sendReplays(client: Client) {
+    for (let i = 0; i < this.duelRecords.length; i++) {
+      await client.sendChat(
+        `#{replay_hint_part1}${i + 1}#{replay_hint_part2}`,
+        ChatColor.BABYBLUE,
+      );
+      const duelRecord = this.duelRecords[i];
+      await client.send(
+        new YGOProStocReplay().fromPartial({
+          replay: duelRecord.toYrp(this),
+        }),
+      );
+    }
+  }
+
+  private async changeSide() {
+    if (this.duelStage === DuelStage.Siding) {
+      return;
+    }
+    this.duelStage = DuelStage.Siding;
+    for (const p of this.playingPlayers) {
+      p.deck = undefined;
+      p.send(new YGOProStocChangeSide());
+    }
+    for (const p of this.watchers) {
+      p.send(new YGOProStocWaitingSide());
+    }
+  }
+
+  async win(winMsg: Partial<YGOProMsgWin>, forceWinMatch = false) {
     if (this.duelStage === DuelStage.Siding) {
       this.playingPlayers
-        .filter((p) => p.deck)
+        .filter((p) => !p.deck)
         .forEach((p) => p.send(new YGOProStocDuelStart()));
     }
     const duelPos = this.getSwappedDuelPosByDuelPos(winMsg.player!);
+    await Promise.all(
+      this.allPlayers.map((p) =>
+        p.send(
+          new YGOProStocGameMsg().fromPartial({
+            msg: new YGOProMsgWin().fromPartial(winMsg),
+          }),
+        ),
+      ),
+    );
     const exactWinMsg = new YGOProMsgWin().fromPartial({
       ...winMsg,
       player: duelPos,
     });
-    ++this.score[this.getSwappedPos(exactWinMsg.player)];
-    // TODO: next game or finalize
+    const lastDuelRecord = this.duelRecords[this.duelRecords.length - 1];
+    if (lastDuelRecord) {
+      lastDuelRecord.winPosition = duelPos;
+    }
+    const winMatch = forceWinMatch || this.score[duelPos] >= this.winMatchCount;
+    if (!winMatch) {
+      await this.changeSide();
+    }
     await this.ctx.dispatch(
       new OnRoomWin(this, exactWinMsg, winMatch),
       this.getDuelPosPlayers(duelPos)[0],
     );
+    if (winMatch) {
+      await this.cleanPlayers(true);
+      return this.finalize();
+    }
+  }
+
+  async kick(client: Client, sendDuelEnd = false) {
+    await this.sendReplays(client);
+    if (
+      sendDuelEnd &&
+      this.duelStage !== DuelStage.Begin &&
+      // don't send duel end when client didn't finish siding
+      !(
+        this.duelStage === DuelStage.Siding &&
+        !client.deck &&
+        client.pos < NetPlayerType.OBSERVER
+      )
+    ) {
+      await client.send(new YGOProStocDuelEnd());
+    }
+    return client.disconnect();
   }
 
   @RoomMethod()
   private async onDisconnect(client: Client, _msg: YGOProCtosDisconnect) {
+    if (this.duelStage === DuelStage.End || this.finalizing) {
+      return;
+    }
     const wasObserver = client.pos === NetPlayerType.OBSERVER;
     const oldPos = client.pos;
 
@@ -451,7 +558,109 @@ export class Room {
     }
 
     // 踢出玩家
-    targetPlayer.disconnect();
+    return this.kick(targetPlayer);
+  }
+
+  @RoomMethod()
+  private async onUpdateDeck(client: Client, msg: YGOProCtosUpdateDeck) {
+    // 只有玩家可以更新卡组
+    if (client.pos === NetPlayerType.OBSERVER) {
+      return;
+    }
+
+    // 在 Siding 阶段已经准备好的玩家不能再更新
+    if (this.duelStage === DuelStage.Siding && client.deck) {
+      return;
+    }
+
+    // 不在 Begin 或 Siding 阶段不能更新卡组
+    if (
+      this.duelStage !== DuelStage.Begin &&
+      this.duelStage !== DuelStage.Siding
+    ) {
+      return;
+    }
+
+    const deck = new YGOProDeck({
+      main: [],
+      extra: [],
+      side: msg.deck.side,
+    });
+    // we have to distinguish main and extra deck cards
+    for (const card of msg.deck.main) {
+      const cardEntry = this.cardReader.apply(card);
+      if (
+        cardEntry?.type &&
+        cardEntry.type & OcgcoreCommonConstants.TYPES_EXTRA_DECK
+      ) {
+        deck.extra.push(card);
+      } else {
+        deck.main.push(card);
+      }
+    }
+
+    // Check deck if needed
+    if (!this.hostinfo.no_check_deck) {
+      let deckError;
+
+      if (this.duelStage === DuelStage.Begin) {
+        // First duel: check deck validity
+        deckError = checkDeck(deck, this.cardReader, {
+          ot: this.hostinfo.rule,
+          lflist: this.lflist,
+          minMain: parseInt(this.ctx.getConfig('DECK_MAIN_MIN', '40')),
+          maxMain: parseInt(this.ctx.getConfig('DECK_MAIN_MAX', '60')),
+          maxExtra: parseInt(this.ctx.getConfig('DECK_EXTRA_MAX', '15')),
+          maxSide: parseInt(this.ctx.getConfig('DECK_SIDE_MAX', '15')),
+          maxCopies: parseInt(this.ctx.getConfig('DECK_MAX_COPIES', '3')),
+        });
+
+        if (deckError) {
+          client.send(
+            new YGOProStocErrorMsg().fromPartial({
+              msg: 1, // ERRMSG_DECKERROR
+              code: deckError.toPayload(),
+            }),
+          );
+          return;
+        }
+      } else if (this.duelStage === DuelStage.Siding) {
+        // Side deck change: check if cards match original deck
+        if (!client.startDeck) {
+          return;
+        }
+
+        if (!checkChangeSide(client.startDeck, deck)) {
+          client.send(
+            new YGOProStocErrorMsg().fromPartial({
+              msg: 1, // ERRMSG_DECKERROR
+              code: 0,
+            }),
+          );
+          return;
+        }
+      }
+    }
+
+    // Save deck
+    client.deck = deck;
+
+    // In Begin stage, also save as startDeck for side deck checking
+    if (this.duelStage === DuelStage.Begin) {
+      client.startDeck = deck;
+      // TODO: In Begin stage, may need to send PlayerChange or auto-ready
+    } else if (this.duelStage === DuelStage.Siding) {
+      // In Siding stage, send DUEL_START to the player who submitted deck
+      client.send(new YGOProStocDuelStart());
+
+      // Check if all players have submitted their decks
+      const allReady = this.playingPlayers.every((p) => p.deck);
+      if (allReady) {
+        return this.startGame(
+          this.duelRecords[this.duelRecords.length - 1]?.winPosition,
+        );
+      }
+    }
   }
 
   @RoomMethod()
@@ -484,7 +693,6 @@ export class Room {
     return Promise.all(this.allPlayers.map((p) => p.sendChat(msg, type)));
   }
 
-  duelCount = 0;
   firstgoPlayer?: Client;
 
   private async toFirstGo(firstgoPos: number) {
@@ -505,8 +713,7 @@ export class Room {
     if (![DuelStage.Finger, DuelStage.Siding].includes(this.duelStage)) {
       return false;
     }
-    ++this.duelCount;
-    if (this.duelCount === 1) {
+    if (this.winnerPositions.length === 0) {
       this.allPlayers.forEach((p) => p.send(new YGOProStocDuelStart()));
       const displayCountDecks = [0, 1].map(
         (p) => this.getDuelPosPlayers(p)[0].deck!,
@@ -540,14 +747,14 @@ export class Room {
       });
     }
 
-    if (firstgoPos != null) {
+    if (firstgoPos != null && firstgoPos >= 0 && firstgoPos <= 1) {
       await this.toFirstGo(firstgoPos);
     } else {
       await this.toFinger();
     }
 
     // 触发事件
-    if (this.duelCount === 1) {
+    if (this.winnerPositions.length === 0) {
       // 触发比赛开始事件（第一局）
       await this.ctx.dispatch(
         new OnRoomMatchStart(this),

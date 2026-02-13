@@ -8,6 +8,8 @@ export const TRANSLATIONS = {
     version_polyfilled:
       'Temporary compatibility mode has been enabled for your version. We recommend updating your game to avoid potential compatibility issues in the future.',
     blank_room_name: 'Blank room name is unallowed, please fill in something.',
+    replay_hint_part1: 'Sending the replay of the duel number ',
+    replay_hint_part2: '.',
   },
   'zh-CN': {
     update_required: '请更新你的客户端版本',
@@ -17,5 +19,7 @@ export const TRANSLATIONS = {
     version_polyfilled:
       '已为当前版本启用临时兼容模式。建议尽快更新游戏，以避免后续兼容性问题。',
     blank_room_name: '房间名不能为空，请在主机密码处填写房间名',
+    replay_hint_part1: '正在发送第',
+    replay_hint_part2: '局决斗的录像。',
   },
 };

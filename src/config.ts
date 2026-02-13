@@ -22,6 +22,11 @@ export const defaultConfig = {
   USE_PROXY: '',
   YGOPRO_PATH: './ygopro',
   EXTRA_SCRIPT_PATH: '',
+  DECK_MAIN_MIN: '40',
+  DECK_MAIN_MAX: '60',
+  DECK_EXTRA_MAX: '15',
+  DECK_SIDE_MAX: '15',
+  DECK_MAX_COPIES: '3',
   ...(Object.fromEntries(
     Object.entries(DefaultHostinfo).map(([key, value]) => [
       `HOSTINFO_${key.toUpperCase()}`,
