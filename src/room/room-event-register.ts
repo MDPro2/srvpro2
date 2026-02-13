@@ -58,7 +58,7 @@ export class RoomEventRegister {
         // 通过 roomName 查找 room
         const roomManager = this.ctx.get(() => RoomManager);
         const room = roomManager.findByName(client.roomName);
-        if (!room) {
+        if (!room || room.finalizing) {
           return next();
         }
 

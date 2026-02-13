@@ -11,6 +11,9 @@ import { CardReaderFinalized } from 'koishipro-core.js';
 import { YGOProResourceLoader } from '../services/ygopro-resource-loader';
 import { blankLFList } from '../utility/blank-lflist';
 import { Client } from '../client/client';
+import { RoomMethod } from '../utility/decorators';
+import { YGOProCtosDisconnect } from '../utility/ygopro-ctos-disconnect';
+import { DuelStage } from './duel-stage';
 
 export type RoomFinalizor = (self: Room) => Awaitable<any>;
 
@@ -64,13 +67,33 @@ export class Room {
     return this;
   }
 
-  private finalizors: RoomFinalizor[] = [];
-  addFinalizor(finalizor: RoomFinalizor) {
-    this.finalizors.push(finalizor);
+  private finalizors: RoomFinalizor[] = [
+    () => {
+      this.allPlayers.forEach((p) => {
+        p.disconnect();
+        if (p.pos < NetPlayerType.OBSERVER) {
+          this.players[p.pos] = undefined;
+        }
+      });
+      this.watchers.clear();
+    },
+  ];
+
+  addFinalizor(finalizor: RoomFinalizor, atEnd = false) {
+    if (atEnd) {
+      this.finalizors.unshift(finalizor);
+    } else {
+      this.finalizors.push(finalizor);
+    }
     return this;
   }
 
+  finalizing = false;
   async finalize() {
+    if (this.finalizing) {
+      return;
+    }
+    this.finalizing = true;
     while (this.finalizors.length) {
       const finalizor = this.finalizors.pop()!;
       await finalizor(this);
@@ -94,9 +117,6 @@ export class Room {
 
   async join(client: Client) {
     client.roomName = this.name;
-    client.disconnect$.subscribe(({ bySystem }) =>
-      this.onPlayerDisconnect(client, bySystem),
-    );
     client.isHost = !this.allPlayers.length;
     const firstEmptyPlayerSlot = this.players.findIndex((p) => !p);
     if (firstEmptyPlayerSlot >= 0) {
@@ -123,13 +143,24 @@ export class Room {
     }
   }
 
-  async onPlayerDisconnect(client: Client) {
+  duelStage = DuelStage.Begin;
+
+  @RoomMethod()
+  async onDisconnect(client: Client, _msg: YGOProCtosDisconnect) {
     if (client.pos === NetPlayerType.OBSERVER) {
       this.watchers.delete(client);
       for (const p of this.allPlayers) {
         p.send(this.watcherSizeMessage).then();
       }
-      return;
+    } else {
+      this.players[client.pos] = undefined;
+    }
+    if (client.isHost) {
+      const nextHost = this.allPlayers.find((p) => p !== client);
+      if (nextHost) {
+        nextHost.isHost = true;
+        await nextHost.sendTypeChange();
+      }
     }
     client.roomName = undefined;
   }

@@ -1,4 +1,4 @@
 import { Metadata } from './metadata';
 
-export const RoomMethod = () =>
+export const RoomMethod = (): MethodDecorator =>
   Metadata.set('roomMethod', true, 'roomMethodKeys');
