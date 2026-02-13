@@ -119,10 +119,6 @@ export class Room {
     return this.hostinfo.mode === 2;
   }
 
-  get opt() {
-    return calculateDuelOptions(this.hostinfo, this.isTag);
-  }
-
   players = new Array<Client | undefined>(this.hostinfo.mode === 2 ? 4 : 2);
   watchers = new Set<Client>();
   get playingPlayers() {
@@ -215,7 +211,7 @@ export class Room {
     }
   }
 
-  get joinGameMessage() {
+  private get joinGameMessage() {
     return new YGOProStocJoinGame().fromPartial({
       info: {
         ...this.hostinfo,
@@ -224,7 +220,7 @@ export class Room {
     });
   }
 
-  get watcherSizeMessage() {
+  private get watcherSizeMessage() {
     return new YGOProStocHsWatchChange().fromPartial({
       watch_count: this.watchers.size,
     });
@@ -354,7 +350,7 @@ export class Room {
     );
   }
 
-  async sendReplays(client: Client) {
+  private async sendReplays(client: Client) {
     for (let i = 0; i < this.duelRecords.length; i++) {
       const duelRecord = this.duelRecords[i];
       await client.sendChat(
@@ -927,7 +923,7 @@ export class Room {
     return true;
   }
 
-  private ocgcore?: OcgcoreWorker;
+  ocgcore?: OcgcoreWorker;
   private registry: Record<string, string> = {};
   turnCount = 0;
   turnIngamePos = 0;
@@ -1591,5 +1587,13 @@ export class Room {
     }
     // TODO: teammate surrender in tag duel
     return this.win({ player: 1 - this.getIngameDuelPos(client), type: 0x0 });
+  }
+
+  async getLP(player: number): Promise<number | undefined> {
+    if (!this.ocgcore) {
+      return undefined;
+    }
+    const info = await this.ocgcore.queryFieldInfo();
+    return info.field.players[this.getIngameDuelPosByDuelPos(player)].lp;
   }
 }

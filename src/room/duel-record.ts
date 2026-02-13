@@ -2,6 +2,7 @@ import YGOProDeck from 'ygopro-deck-encode';
 import { YGOProYrp, ReplayHeader } from 'ygopro-yrp-encode';
 import { Room } from './room';
 import { YGOProMsgBase } from 'ygopro-msg-encode';
+import { calculateDuelOptions } from '../utility/calculate-duel-options';
 
 // Constants from ygopro
 const REPLAY_COMPRESSED = 0x1;
@@ -68,7 +69,7 @@ export class DuelRecord {
       startLp: room.hostinfo.start_lp,
       startHand: room.hostinfo.start_hand,
       drawCount: room.hostinfo.draw_count,
-      opt: room.opt,
+      opt: calculateDuelOptions(room.hostinfo),
       hostDeck: this.toReplayDeck(this.players[0]?.deck),
       clientDeck: isTag
         ? this.toReplayDeck(this.players[2]?.deck)

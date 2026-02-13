@@ -7,10 +7,7 @@ import { OcgcoreDuelOptionFlag } from 'koishipro-core.js';
  * @param isTag Whether this is a tag duel
  * @returns Duel options number
  */
-export function calculateDuelOptions(
-  hostinfo: HostInfo,
-  isTag: boolean = false,
-): number {
+export function calculateDuelOptions(hostinfo: HostInfo): number {
   // duel_rule is stored in high 16 bits
   let opt = hostinfo.duel_rule << 16;
 
@@ -18,7 +15,7 @@ export function calculateDuelOptions(
     opt |= OcgcoreDuelOptionFlag.PseudoShuffle;
   }
 
-  if (isTag) {
+  if (hostinfo.mode & 0x2) {
     opt |= OcgcoreDuelOptionFlag.TagMode;
   }
 
