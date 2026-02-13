@@ -146,22 +146,28 @@ export class Room {
     });
   }
 
-  getTeammates(client: Client) {
-    if (client.pos === NetPlayerType.OBSERVER) {
+  private resolvePos(clientOrPos: Client | number) {
+    return typeof clientOrPos === 'number' ? clientOrPos : clientOrPos.pos;
+  }
+
+  getTeammates(clientOrPos: Client | number) {
+    const pos = this.resolvePos(clientOrPos);
+    if (pos === NetPlayerType.OBSERVER) {
       return [];
     }
     if (this.isTag) {
       const teamBit = (c: Client) => c.pos & 0x1;
-      return this.playingPlayers.filter((p) => teamBit(p) === teamBit(client));
+      return this.playingPlayers.filter((p) => teamBit(p) === (pos & 0x1));
     }
     return [];
   }
 
-  getOpponents(client: Client) {
-    if (client.pos === NetPlayerType.OBSERVER) {
+  getOpponents(clientOrPos: Client | number) {
+    const pos = this.resolvePos(clientOrPos);
+    if (pos === NetPlayerType.OBSERVER) {
       return [];
     }
-    const teammates = new Set<Client>(this.getTeammates(client));
+    const teammates = new Set<Client>(this.getTeammates(pos));
     return this.playingPlayers.filter((p) => !teammates.has(p));
   }
 
@@ -169,11 +175,21 @@ export class Room {
     return this.isTag ? 1 : 0;
   }
 
-  getDuelPos(client: Client) {
-    if (client.pos === NetPlayerType.OBSERVER) {
+  getDuelPos(clientOrPos: Client | number) {
+    const pos = this.resolvePos(clientOrPos);
+    if (pos === NetPlayerType.OBSERVER) {
       return -1;
     }
-    return (client.pos & (0x1 << this.teamOffsetBit)) >>> this.teamOffsetBit;
+    return (pos & (0x1 << this.teamOffsetBit)) >>> this.teamOffsetBit;
+  }
+
+  isPosSwapped = false;
+  getSwappedPos(clientOrPos: Client | number) {
+    const pos = this.resolvePos(clientOrPos);
+    if (pos === NetPlayerType.OBSERVER || !this.isPosSwapped) {
+      return pos;
+    }
+    return pos ^ (0x1 << this.teamOffsetBit);
   }
 
   getPosPlayers(duelPos: number) {
@@ -181,14 +197,6 @@ export class Room {
       return [...this.watchers];
     }
     return this.playingPlayers.filter((p) => this.getDuelPos(p) === duelPos);
-  }
-
-  isPosSwapped = false;
-  getSwappedPos(client: Client) {
-    if (client.pos === NetPlayerType.OBSERVER || !this.isPosSwapped) {
-      return client.pos;
-    }
-    return client.pos ^ (0x1 << this.teamOffsetBit);
   }
 
   async join(client: Client) {
