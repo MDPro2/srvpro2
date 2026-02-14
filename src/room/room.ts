@@ -545,6 +545,10 @@ export class Room {
     }
 
     client.roomName = undefined;
+
+    if (!this.allPlayers.find((p) => !p.isInternal)) {
+      return this.finalize();
+    }
   }
 
   @RoomMethod()
