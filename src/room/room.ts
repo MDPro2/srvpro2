@@ -1,4 +1,4 @@
-import { Awaitable, ProtoMiddlewareDispatcher } from 'nfkit';
+import { Awaitable, MayBeArray, ProtoMiddlewareDispatcher } from 'nfkit';
 import { Context } from '../app';
 import BetterLock from 'better-lock';
 import {
@@ -90,6 +90,7 @@ import { isUpdateMessage } from '../utility/is-update-message';
 import { getMessageIdentifier } from '../utility/get-message-identifier';
 import { canIncreaseTime } from '../utility/can-increase-time';
 import { TimerState } from './timer-state';
+import { makeArray } from 'aragami/dist/src/utility/utility';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -1194,10 +1195,10 @@ export class Room {
     this.phase = undefined;
     this.resetDuelTimerState();
 
-    await this.handleGameMsg(watcherMsg.msg);
+    await this.dispatchGameMsg(watcherMsg.msg);
     await this.ctx.dispatch(
       new OnRoomDuelStart(this),
-      this.getOperatingPlayer(this.turnIngamePos),
+      this.gatIngameOperatingPlayer(this.turnIngamePos),
     );
 
     await Promise.all([
@@ -1232,7 +1233,7 @@ export class Room {
     this.phase = phase;
   }
 
-  getOperatingPlayer(ingameDuelPos: number): Client | undefined {
+  gatIngameOperatingPlayer(ingameDuelPos: number): Client | undefined {
     const players = this.getIngameDuelPosPlayers(ingameDuelPos);
     if (!this.isTag) {
       return players[0];
@@ -1257,7 +1258,10 @@ export class Room {
     return players[0];
   }
 
-  private async refreshLocations(refresh: RequireQueryLocation) {
+  private async refreshLocations(
+    refresh: RequireQueryLocation,
+    options: { queryFlag?: number; sendToClient?: MayBeArray<Client> } = {},
+  ) {
     if (!this.ocgcore) {
       return;
     }
@@ -1266,16 +1270,16 @@ export class Room {
       const { cards } = await this.ocgcore.queryFieldCard({
         player: refresh.player,
         location,
-        queryFlag: getZoneQueryFlag(location),
+        queryFlag: options.queryFlag ?? getZoneQueryFlag(location),
         useCache: 1,
       });
-      await this.handleGameMsg(
+      await this.dispatchGameMsg(
         new YGOProMsgUpdateData().fromPartial({
           player: refresh.player,
           location,
           cards: cards ?? [],
         }),
-        true,
+        { sendToClient: options.sendToClient, route: true },
       );
     }
   }
@@ -1296,7 +1300,7 @@ export class Room {
           OcgcoreCommonConstants.QUERY_POSITION,
         useCache: 0,
       });
-      await this.handleGameMsg(
+      await this.dispatchGameMsg(
         new YGOProMsgUpdateCard().fromPartial({
           controller: refresh.player,
           location,
@@ -1325,7 +1329,7 @@ export class Room {
   }
 
   private async sendWaitingToNonOperator(ingameDuelPos: number) {
-    const operatingPlayer = this.getOperatingPlayer(ingameDuelPos);
+    const operatingPlayer = this.gatIngameOperatingPlayer(ingameDuelPos);
     const noOps = this.playingPlayers.filter((p) => p !== operatingPlayer);
     await Promise.all(
       noOps.map((p) =>
@@ -1338,7 +1342,10 @@ export class Room {
     );
   }
 
-  private async routeGameMsg(message: YGOProMsgBase) {
+  private async routeGameMsg(
+    message: YGOProMsgBase,
+    options: { sendToClient?: MayBeArray<Client> } = {},
+  ) {
     if (!message) {
       return;
     }
@@ -1351,6 +1358,9 @@ export class Room {
     const sendTargets = message.getSendTargets();
     const sendGameMsg = (c: Client, msg: YGOProMsgBase) =>
       c.send(new YGOProStocGameMsg().fromPartial({ msg }));
+    const sendToClients = options.sendToClient
+      ? new Set(makeArray(options.sendToClient))
+      : undefined;
     await Promise.all(
       sendTargets.map(async (pos) => {
         if (pos === NetPlayerType.OBSERVER) {
@@ -1361,10 +1371,13 @@ export class Room {
         } else {
           const players = this.getIngameDuelPosPlayers(pos);
           await Promise.all(
-            players.map((c) => {
+            players.map(async (c) => {
+              if (sendToClients && !sendToClients.has(c)) {
+                return;
+              }
               const duelPos = this.getIngameDuelPos(c);
               const playerView = message.playerView(duelPos);
-              const operatingPlayer = this.getOperatingPlayer(duelPos);
+              const operatingPlayer = this.gatIngameOperatingPlayer(duelPos);
               return sendGameMsg(
                 c,
                 c === operatingPlayer ? playerView : playerView.teammateView(),
@@ -1407,16 +1420,23 @@ export class Room {
     }
   }
 
-  private async handleGameMsg(message: YGOProMsgBase, route = false) {
-    const msg1 = await this.localGameMsgDispatcher.dispatch(message);
-    const msg2 = await this.ctx.dispatch(
-      msg1,
-      this.getOperatingPlayer(this.turnIngamePos),
-    );
-    if (route) {
-      await this.routeGameMsg(msg2);
+  async dispatchGameMsg(
+    message: YGOProMsgBase,
+    options: { sendToClient?: MayBeArray<Client>; route?: boolean } = {},
+  ) {
+    if (!options.sendToClient) {
+      message = await this.localGameMsgDispatcher.dispatch(message);
+      message = await this.ctx.dispatch(
+        message,
+        this.gatIngameOperatingPlayer(this.turnIngamePos),
+      );
     }
-    return msg2;
+    if (options.route) {
+      await this.routeGameMsg(message, {
+        sendToClient: options.sendToClient,
+      });
+    }
+    return message;
   }
 
   localGameMsgDispatcher = new ProtoMiddlewareDispatcher({
@@ -1455,7 +1475,7 @@ export class Room {
     })
     .middleware(YGOProMsgRetry, async (message, next) => {
       if (this.responsePos != null) {
-        const op = this.getOperatingPlayer(
+        const op = this.gatIngameOperatingPlayer(
           this.getIngameDuelPosByDuelPos(this.responsePos),
         );
         await op.send(
@@ -1495,7 +1515,7 @@ export class Room {
           continue;
         }
 
-        const handled = await this.handleGameMsg(message);
+        const handled = await this.dispatchGameMsg(message);
         if (handled instanceof YGOProMsgWin) {
           return this.win(handled);
         }
@@ -1524,7 +1544,9 @@ export class Room {
     }
     if (
       client !==
-      this.getOperatingPlayer(this.getIngameDuelPosByDuelPos(this.responsePos))
+      this.gatIngameOperatingPlayer(
+        this.getIngameDuelPosByDuelPos(this.responsePos),
+      )
     ) {
       return;
     }
@@ -1557,7 +1579,7 @@ export class Room {
     if (
       this.responsePos == null ||
       client !==
-        this.getOperatingPlayer(
+        this.gatIngameOperatingPlayer(
           this.getIngameDuelPosByDuelPos(this.responsePos),
         ) ||
       !this.ocgcore
