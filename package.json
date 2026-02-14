@@ -1,6 +1,6 @@
 {
-  "name": "myproject",
-  "description": "myproject-desc",
+  "name": "srvpro2",
+  "description": "Next-generation YGOPro server with direct ocgcore control via WASM and modern TypeScript architecture",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,15 +14,22 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://code.moenext.com/nanahira/myproject.git"
+    "url": "https://code.moenext.com/nanahira/srvpro2.git"
   },
   "author": "Nanahira <nanahira@momobako.com>",
   "license": "MIT",
-  "keywords": [],
+  "keywords": [
+    "ygopro",
+    "yugioh",
+    "ocgcore",
+    "server",
+    "wasm",
+    "typescript"
+  ],
   "bugs": {
-    "url": "https://code.moenext.com/nanahira/myproject/issues"
+    "url": "https://code.moenext.com/nanahira/srvpro2/issues"
   },
-  "homepage": "https://code.moenext.com/nanahira/myproject",
+  "homepage": "https://code.moenext.com/nanahira/srvpro2",
   "jest": {
     "moduleFileExtensions": [
       "js",
