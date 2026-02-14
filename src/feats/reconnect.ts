@@ -300,7 +300,7 @@ export class Reconnect {
       // 清理旧客户端
       oldClient.roomName = undefined;
       oldClient.pos = -1;
-      
+
       // kick reconnect 的区别：通知旧客户端被踢（不 await）
       oldClient
         .sendChat('#{reconnect_kicked}', ChatColor.RED)

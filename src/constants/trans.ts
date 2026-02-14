@@ -15,8 +15,10 @@ export const TRANSLATIONS = {
     left_game: 'quited game',
     disconnect_from_game: 'disconnected from the game',
     reconnect_to_game: 'reconnected to the game',
-    reconnect_kicked: "You are kicked out because you're logged in on other devices.",
-    pre_reconnecting_to_room: 'You will be reconnected to your previous game. Please pick your previous deck.',
+    reconnect_kicked:
+      "You are kicked out because you're logged in on other devices.",
+    pre_reconnecting_to_room:
+      'You will be reconnected to your previous game. Please pick your previous deck.',
     deck_incorrect_reconnect: 'Please pick your previous deck.',
     reconnect_failed: 'Reconnect failed.',
     reconnecting_to_room: 'Reconnecting to server...',
@@ -37,7 +39,8 @@ export const TRANSLATIONS = {
     disconnect_from_game: '断开了连接',
     reconnect_to_game: '重新连接了',
     reconnect_kicked: '你的账号已经在其他设备登录，你被迫下线。',
-    pre_reconnecting_to_room: '你有未完成的对局，即将重新连接，请选择你在本局决斗中使用的卡组并准备。',
+    pre_reconnecting_to_room:
+      '你有未完成的对局，即将重新连接，请选择你在本局决斗中使用的卡组并准备。',
     deck_incorrect_reconnect: '请选择你在本局决斗中使用的卡组。',
     reconnect_failed: '重新连接失败。',
     reconnecting_to_room: '正在重新连接到服务器……',

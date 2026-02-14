@@ -46,4 +46,3 @@ export const shuffleDecksBySeed = (decks: YGOProDeck[], seed: number[]) => {
     return cloned;
   });
 };
-

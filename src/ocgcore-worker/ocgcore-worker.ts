@@ -32,7 +32,11 @@ import { OcgcoreWorkerOptions } from './ocgcore-worker-options';
 import { Subject } from 'rxjs';
 import { calculateDuelOptions } from '../utility/calculate-duel-options';
 import initSqlJs from 'sql.js';
-import { YGOProMessages, YGOProMsgResponseBase, YGOProMsgRetry } from 'ygopro-msg-encode';
+import {
+  YGOProMessages,
+  YGOProMsgResponseBase,
+  YGOProMsgRetry,
+} from 'ygopro-msg-encode';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 

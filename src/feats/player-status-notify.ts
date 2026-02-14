@@ -17,7 +17,10 @@ export class PlayerStatusNotify {
       const room = event.room;
       if (client.pos === NetPlayerType.OBSERVER) {
         // 观战者离开
-        await room.sendChat(`${client.name} #{quit_watch}`, ChatColor.LIGHTBLUE);
+        await room.sendChat(
+          `${client.name} #{quit_watch}`,
+          ChatColor.LIGHTBLUE,
+        );
       } else {
         // 玩家离开
         await room.sendChat(`${client.name} #{left_game}`, ChatColor.LIGHTBLUE);
