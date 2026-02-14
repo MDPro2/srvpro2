@@ -1,35 +1,39 @@
-HOST: "::"
-PORT: "7911"
-REDIS_URL: ""
-LOG_LEVEL: info
-WS_PORT: "0"
-SSL_PATH: ""
-SSL_CERT: ""
-SSL_KEY: ""
-TRUSTED_PROXIES: 127.0.0.0/8,::1/128
-NO_CONNECT_COUNT_LIMIT: ""
-YGOPRO_VERSION: ""
-ALT_VERSIONS: ""
-USE_PROXY: ""
-YGOPRO_PATH: ./ygopro
-EXTRA_SCRIPT_PATH: ""
-DECK_MAIN_MIN: "40"
-DECK_MAIN_MAX: "60"
-DECK_EXTRA_MAX: "15"
-DECK_SIDE_MAX: "15"
-DECK_MAX_COPIES: "3"
-OCGCORE_DEBUG_LOG: ""
-OCGCORE_WASM_PATH: ""
-WELCOME: ""
-ENABLE_RECONNECT: "1"
-RECONNECT_TIMEOUT: "180000"
-HOSTINFO_LFLIST: "0"
-HOSTINFO_RULE: "0"
-HOSTINFO_MODE: "0"
-HOSTINFO_DUEL_RULE: "5"
-HOSTINFO_NO_CHECK_DECK: "0"
-HOSTINFO_NO_SHUFFLE_DECK: "0"
-HOSTINFO_START_LP: "8000"
-HOSTINFO_START_HAND: "5"
-HOSTINFO_DRAW_COUNT: "1"
-HOSTINFO_TIME_LIMIT: "240"
+host: "::"
+port: 7911
+redisUrl: ""
+logLevel: info
+wsPort: 0
+sslPath: ""
+sslCert: ""
+sslKey: ""
+trustedProxies:
+  - 127.0.0.0/8
+  - ::1/128
+noConnectCountLimit: ""
+ygoproVersion: "0x1362"
+altVersions:
+  - 2330
+  - 2331
+useProxy: ""
+ygoproPath: ./ygopro
+extraScriptPath: ""
+deckMainMin: 40
+deckMainMax: 60
+deckExtraMax: 15
+deckSideMax: 15
+deckMaxCopies: 3
+ocgcoreDebugLog: 0
+ocgcoreWasmPath: ""
+welcome: ""
+enableReconnect: 1
+reconnectTimeout: 180000
+hostinfoLflist: 0
+hostinfoRule: 0
+hostinfoMode: 0
+hostinfoDuelRule: 5
+hostinfoNoCheckDeck: 0
+hostinfoNoShuffleDeck: 0
+hostinfoStartLp: 8000
+hostinfoStartHand: 5
+hostinfoDrawCount: 1
+hostinfoTimeLimit: 240

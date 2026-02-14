@@ -2,6 +2,7 @@ import yaml from 'yaml';
 import * as fs from 'node:fs';
 import { DefaultHostinfo } from './room/default-hostinfo';
 import { Prettify } from 'nfkit';
+import { normalizeConfigByDefaultKeys } from './utility/normalize-config-by-default-keys';
 
 export type HostinfoOptions = {
   [K in keyof typeof DefaultHostinfo as `HOSTINFO_${Uppercase<K>}`]: string;
@@ -30,9 +31,9 @@ export const defaultConfig = {
   // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
   NO_CONNECT_COUNT_LIMIT: '',
   // Restrict accepted YGOPro version. Format: version string; empty means no restriction.
-  YGOPRO_VERSION: '',
+  YGOPRO_VERSION: '0x1362',
   // Additional accepted versions. Format: comma-separated version strings.
-  ALT_VERSIONS: '',
+  ALT_VERSIONS: '2330,2331',
   // Proxy URL for outbound HTTP(S) requests.
   // Format: proxy URL string (e.g. http://127.0.0.1:7890). Empty means no proxy.
   USE_PROXY: '',
@@ -52,7 +53,7 @@ export const defaultConfig = {
   DECK_MAX_COPIES: '3',
   // Enable ocgcore debug logs.
   // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
-  OCGCORE_DEBUG_LOG: '',
+  OCGCORE_DEBUG_LOG: '0',
   // OCGCore wasm file path. Format: filesystem path string. Empty means use default wasm loading.
   OCGCORE_WASM_PATH: '',
   // Welcome message sent when players join. Format: plain string.
@@ -77,16 +78,25 @@ export const defaultConfig = {
 export type Config = Prettify<typeof defaultConfig & HostinfoOptions>;
 
 export function loadConfig(): Config {
-  let readConfig: Partial<Config> = {};
+  let readConfig: Record<string, unknown> = {};
   try {
     const configText = fs.readFileSync('./config.yaml', 'utf-8');
-    readConfig = yaml.parse(configText);
+    const parsed = yaml.parse(configText);
+    if (parsed && typeof parsed === 'object') {
+      readConfig = parsed;
+    }
   } catch (e) {
     console.error(`Failed to read config: ${e.toString()}`);
   }
+
+  const normalizedConfig = normalizeConfigByDefaultKeys(
+    readConfig,
+    defaultConfig,
+  );
+
   return {
     ...defaultConfig,
-    ...readConfig,
+    ...normalizedConfig,
     ...process.env,
   };
 }
