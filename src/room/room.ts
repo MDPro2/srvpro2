@@ -1607,7 +1607,17 @@ export class Room {
     }
 
     try {
-      for await (const { status, message } of this.ocgcore.advance()) {
+      for await (const {
+        status,
+        message,
+        encodeError,
+      } of this.ocgcore.advance()) {
+        if (encodeError) {
+          this.logger.warn(
+            { encodeError, status },
+            'Failed to decode game message in worker transport',
+          );
+        }
         if (!message) {
           this.logger.warn({ message }, 'Received empty message from ocgcore');
           if (status) {

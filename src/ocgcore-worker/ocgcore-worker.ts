@@ -46,7 +46,12 @@ interface SerializableProcessResult {
   length: number;
   raw: Uint8Array;
   status: number;
+  encodeError?: string;
 }
+
+export type OcgcoreProcessResultWithEncodeError = OcgcoreProcessResult & {
+  encodeError?: string;
+};
 
 interface SerializableCardQueryResult {
   length: number;
@@ -211,7 +216,10 @@ export class OcgcoreWorker {
   // Wrapper methods for OcgcoreDuel
 
   @WorkerMethod()
-  @TransportEncoder<OcgcoreProcessResult, SerializableProcessResult>(
+  @TransportEncoder<
+    OcgcoreProcessResultWithEncodeError,
+    SerializableProcessResult
+  >(
     // serialize in worker: only send raw
     (result) => ({
       length: result.length,
@@ -219,24 +227,71 @@ export class OcgcoreWorker {
       status: result.status,
     }),
     // deserialize in main thread: re-parse from raw
-    (serialized) => ({
-      length: serialized.length,
-      raw: serialized.raw,
-      status: serialized.status,
-      message:
-        serialized.raw.length > 0
-          ? (() => {
-              try {
-                return YGOProMessages.getInstanceFromPayload(serialized.raw);
-              } catch {
-                return undefined;
-              }
-            })()
-          : undefined,
-    }),
+    (serialized) => {
+      let message;
+      let messages;
+      let encodeError: string | undefined;
+
+      if (serialized.raw.length > 0) {
+        try {
+          messages = YGOProMessages.getInstancesFromPayload(serialized.raw);
+          message = messages[messages.length - 1];
+          if (!messages.length) {
+            encodeError = 'failed to decode any game messages';
+          } else {
+            const consumed = messages.reduce(
+              (sum, msg) => sum + msg.toPayload().length,
+              0,
+            );
+            if (consumed < serialized.raw.length) {
+              const nextIdentifier = serialized.raw[consumed];
+              encodeError =
+                `decoded ${messages.length} message(s) but left trailing bytes: ` +
+                `total=${serialized.raw.length}, consumed=${consumed}, nextIdentifier=${nextIdentifier ?? 'n/a'}`;
+            }
+          }
+        } catch (error) {
+          message = undefined;
+          messages = undefined;
+          encodeError =
+            error instanceof Error ? error.message : String(error);
+        }
+      }
+
+      return {
+        length: serialized.length,
+        raw: serialized.raw,
+        status: serialized.status,
+        message,
+        messages,
+        encodeError,
+      };
+    },
   )
-  async process(): Promise<OcgcoreProcessResult> {
+  async process(): Promise<OcgcoreProcessResultWithEncodeError> {
     return this.duel.process({ noParse: true });
+  }
+
+  private splitProcessResult(
+    res: OcgcoreProcessResultWithEncodeError,
+  ): OcgcoreProcessResultWithEncodeError[] {
+    if (!res.messages || res.messages.length <= 1) {
+      return [res];
+    }
+
+    const messageCount = res.messages.length;
+    return res.messages.map((message, index) => {
+      const raw = message.toPayload();
+      return {
+        ...res,
+        length: raw.length,
+        raw,
+        status: index === messageCount - 1 ? res.status : 0,
+        message,
+        messages: [message],
+        encodeError: index === messageCount - 1 ? res.encodeError : undefined,
+      };
+    });
   }
 
   @WorkerMethod()
@@ -317,26 +372,28 @@ export class OcgcoreWorker {
     return this.duel.queryFieldInfo({ noParse: true });
   }
 
-  async *advance() {
+  async *advance(): AsyncGenerator<OcgcoreProcessResultWithEncodeError> {
     while (true) {
-      const res = await this.process();
+      const processedResults = this.splitProcessResult(await this.process());
 
-      if (res.raw.length === 0) {
-        continue;
-      }
+      for (const res of processedResults) {
+        if (res.raw.length === 0) {
+          continue;
+        }
 
-      yield res;
+        yield res;
 
-      if (res.status === 2) {
-        break;
-      }
+        if (res.status === 2) {
+          return;
+        }
 
-      if (res.message instanceof YGOProMsgRetry) {
-        break;
-      }
+        if (res.message instanceof YGOProMsgRetry) {
+          return;
+        }
 
-      if (res.message instanceof YGOProMsgResponseBase) {
-        break;
+        if (res.message instanceof YGOProMsgResponseBase) {
+          return;
+        }
       }
     }
   }
