@@ -27,6 +27,8 @@ export class RoomManager {
 
   private roomCreateLock = new BetterLock();
 
+  private logger = this.ctx.createLogger('RoomManager');
+
   async findOrCreateByName(name: string) {
     const existing = this.findByName(name);
     if (existing) return existing;
@@ -37,12 +39,20 @@ export class RoomManager {
 
       const room = new Room(this.ctx, name).addFinalizor((r) => {
         this.rooms.delete(r.name);
+        this.logger.debug(
+          { room: r.name, roomCount: this.rooms.size },
+          'Room finalized and removed',
+        );
       });
       for (const finalizor of this.finalizors) {
         room.addFinalizor(finalizor);
       }
       await room.init();
       this.rooms.set(name, room);
+      this.logger.debug(
+        { room: name, roomCount: this.rooms.size },
+        'Room created',
+      );
       return room;
     });
   }

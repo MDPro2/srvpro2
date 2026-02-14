@@ -174,7 +174,7 @@ export class IpResolver {
    */
   clearConnectionCounts(): void {
     this.connectedIpCount.clear();
-    this.logger.info('Connection counts cleared');
+    this.logger.debug('Connection counts cleared');
   }
 
   /**
@@ -182,6 +182,6 @@ export class IpResolver {
    */
   clearBadIpCounts(): void {
     this.badIpCount.clear();
-    this.logger.info('Bad IP counts cleared');
+    this.logger.debug('Bad IP counts cleared');
   }
 }

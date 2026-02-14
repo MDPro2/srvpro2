@@ -5,6 +5,7 @@ import { TransportType } from 'yuzuthread';
 export class OcgcoreWorkerOptions {
   ygoproPaths: string[];
   extraScriptPaths: string[];
+  ocgcoreWasmPath?: string;
   seed: number[];
   hostinfo: HostInfo;
   @TransportType(() => [YGOProDeck])

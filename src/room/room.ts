@@ -92,6 +92,7 @@ import { canIncreaseTime } from '../utility/can-increase-time';
 import { parseConfigBoolean } from '../utility/parse-config-boolean';
 import { TimerState } from './timer-state';
 import { makeArray } from 'aragami/dist/src/utility/utility';
+import path from 'path';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -204,6 +205,13 @@ export class Room {
     }
     this.finalizing = true;
     this.resetResponseState();
+    this.logger.debug(
+      {
+        playerCount: this.playingPlayers.length,
+        watcherCount: this.watchers.size,
+      },
+      'Finalizing room',
+    );
     await this.cleanPlayers(sendReplays);
     while (this.finalizors.length) {
       const finalizor = this.finalizors.pop()!;
@@ -1202,11 +1210,18 @@ export class Room {
       { seed: duelRecord.seed, registry, hostinfo: this.hostinfo },
       'Initializing OCGCoreWorker',
     );
+
+    const ocgcoreWasmPathConfig = this.ctx.getConfig('OCGCORE_WASM_PATH', '');
+    const ocgcoreWasmPath = ocgcoreWasmPathConfig
+      ? path.resolve(process.cwd(), ocgcoreWasmPathConfig)
+      : undefined;
+
     this.ocgcore = await initWorker(OcgcoreWorker, {
       seed: duelRecord.seed,
       hostinfo: this.hostinfo,
       ygoproPaths: this.resourceLoader.ygoproPaths,
       extraScriptPaths,
+      ocgcoreWasmPath,
       registry,
       decks: duelRecord.players.map((p) => p.deck),
       isTag: this.isTag,

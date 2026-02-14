@@ -53,6 +53,8 @@ export const defaultConfig = {
   // Enable ocgcore debug logs.
   // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
   OCGCORE_DEBUG_LOG: '',
+  // OCGCore wasm file path. Format: filesystem path string. Empty means use default wasm loading.
+  OCGCORE_WASM_PATH: '',
   // Welcome message sent when players join. Format: plain string.
   WELCOME: '',
   // Enable reconnect feature.

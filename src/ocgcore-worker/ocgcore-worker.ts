@@ -37,6 +37,7 @@ import {
   YGOProMsgResponseBase,
   YGOProMsgRetry,
 } from 'ygopro-msg-encode';
+import * as fs from 'node:fs';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -90,8 +91,15 @@ export class OcgcoreWorker {
 
   @WorkerInit()
   async init() {
+    let wasmBinary: Uint8Array | undefined;
+    if (this.options.ocgcoreWasmPath) {
+      wasmBinary = await fs.promises.readFile(this.options.ocgcoreWasmPath);
+    }
+
     // Create ocgcore wrapper
-    this.ocgcore = await createOcgcoreWrapper();
+    this.ocgcore = await createOcgcoreWrapper(
+      wasmBinary ? { wasmBinary } : undefined,
+    );
     this.ocgcore.setMessageHandler((_, message, type) =>
       this.handleMessage(message, type),
     );
