@@ -89,7 +89,6 @@ import { shuffleDecksBySeed } from '../utility/shuffle-decks-by-seed';
 import { isUpdateMessage } from '../utility/is-update-message';
 import { getMessageIdentifier } from '../utility/get-message-identifier';
 import { canIncreaseTime } from '../utility/can-increase-time';
-import { parseConfigBoolean } from '../utility/parse-config-boolean';
 import { TimerState } from './timer-state';
 import { makeArray } from 'aragami/dist/src/utility/utility';
 import path from 'path';
@@ -738,11 +737,11 @@ export class Room {
         const deckError = checkDeck(deck, cardReader, {
           ot: this.hostinfo.rule,
           lflist: this.lflist,
-          minMain: parseInt(this.ctx.getConfig('DECK_MAIN_MIN', '40')),
-          maxMain: parseInt(this.ctx.getConfig('DECK_MAIN_MAX', '60')),
-          maxExtra: parseInt(this.ctx.getConfig('DECK_EXTRA_MAX', '15')),
-          maxSide: parseInt(this.ctx.getConfig('DECK_SIDE_MAX', '15')),
-          maxCopies: parseInt(this.ctx.getConfig('DECK_MAX_COPIES', '3')),
+          minMain: this.ctx.config.getInt('DECK_MAIN_MIN'),
+          maxMain: this.ctx.config.getInt('DECK_MAIN_MAX'),
+          maxExtra: this.ctx.config.getInt('DECK_EXTRA_MAX'),
+          maxSide: this.ctx.config.getInt('DECK_SIDE_MAX'),
+          maxCopies: this.ctx.config.getInt('DECK_MAX_COPIES'),
         });
 
         this.logger.debug(
@@ -1211,7 +1210,7 @@ export class Room {
       'Initializing OCGCoreWorker',
     );
 
-    const ocgcoreWasmPathConfig = this.ctx.getConfig('OCGCORE_WASM_PATH', '');
+    const ocgcoreWasmPathConfig = this.ctx.config.getString('OCGCORE_WASM_PATH');
     const ocgcoreWasmPath = ocgcoreWasmPathConfig
       ? path.resolve(process.cwd(), ocgcoreWasmPathConfig)
       : undefined;
@@ -1283,7 +1282,7 @@ export class Room {
     this.ocgcore.message$.subscribe((msg) => {
       if (
         msg.type === OcgcoreMessageType.DebugMessage &&
-        !parseConfigBoolean(this.ctx.getConfig('OCGCORE_DEBUG_LOG', ''))
+        !this.ctx.config.getBoolean('OCGCORE_DEBUG_LOG')
       ) {
         return;
       }

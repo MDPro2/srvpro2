@@ -9,7 +9,7 @@ export class DefaultHostInfoProvider {
     const hostinfo = { ...DefaultHostinfo };
     for (const key of Object.keys(hostinfo)) {
       const configKey = `HOSTINFO_${key.toUpperCase()}`;
-      const value = this.ctx.getConfig(configKey as any) as string;
+      const value = this.ctx.config.getString(configKey as any);
       if (value) {
         const num = Number(value);
         if (!isNaN(num)) {

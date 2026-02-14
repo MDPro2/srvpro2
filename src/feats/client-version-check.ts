@@ -4,16 +4,11 @@ import {
   YGOProStocErrorMsg,
 } from 'ygopro-msg-encode';
 import { Context } from '../app';
-import { convertNumberArray } from '../utility/convert-string-array';
-
-const YGOPRO_VERSION = 0x1362;
 
 export class ClientVersionCheck {
-  private altVersions = convertNumberArray(this.ctx.getConfig('ALT_VERSIONS'));
+  private altVersions = this.ctx.config.getIntArray('ALT_VERSIONS');
 
-  version = parseInt(
-    this.ctx.getConfig('YGOPRO_VERSION', YGOPRO_VERSION.toString()),
-  );
+  version = this.ctx.config.getInt('YGOPRO_VERSION');
 
   constructor(private ctx: Context) {
     this.ctx.middleware(

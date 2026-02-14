@@ -10,14 +10,13 @@ export class TcpServer {
   constructor(private ctx: Context) {}
 
   async init(): Promise<void> {
-    const port = this.ctx.getConfig('PORT', '0');
-    if (!port || port === '0') {
+    const portNum = this.ctx.config.getInt('PORT');
+    if (!portNum) {
       this.logger.info('PORT not configured, TCP server will not start');
       return;
     }
 
-    const host = this.ctx.getConfig('HOST', '::');
-    const portNum = parseInt(port, 10);
+    const host = this.ctx.config.getString('HOST');
 
     this.server = createServer((socket) => {
       this.handleConnection(socket);

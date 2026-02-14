@@ -10,7 +10,7 @@ declare module '../room' {
 }
 
 export class Welcome {
-  private welcomeMessage = this.ctx.getConfig('WELCOME');
+  private welcomeMessage = this.ctx.config.getString('WELCOME');
 
   constructor(private ctx: Context) {
     this.ctx.middleware(OnRoomJoin, async (event, client, next) => {

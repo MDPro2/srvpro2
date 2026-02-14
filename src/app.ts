@@ -12,7 +12,7 @@ import { FeatsModule } from './feats/feats-module';
 
 const core = createAppContext()
   .provide(ConfigService, {
-    merge: ['getConfig'],
+    merge: ['config'],
   })
   .provide(Logger, { merge: ['createLogger'] })
   .provide(Emitter, { merge: ['dispatch', 'middleware', 'removeMiddleware'] })

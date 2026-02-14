@@ -3,7 +3,8 @@ port: 7911
 redisUrl: ""
 logLevel: info
 wsPort: 0
-sslPath: ""
+enableSsl: 0
+sslPath: ./ssl
 sslCert: ""
 sslKey: ""
 trustedProxies:

@@ -20,9 +20,10 @@ type LoadedCandidate = {
 
 export class SSLFinder {
   constructor(private ctx: Context) {}
-  private sslPath = this.ctx.getConfig('SSL_PATH', './ssl');
-  private sslKey = this.ctx.getConfig('SSL_KEY', '');
-  private sslCert = this.ctx.getConfig('SSL_CERT', '');
+  private enableSSL = this.ctx.config.getBoolean('ENABLE_SSL');
+  private sslPath = this.ctx.config.getString('SSL_PATH');
+  private sslKey = this.ctx.config.getString('SSL_KEY');
+  private sslCert = this.ctx.config.getString('SSL_CERT');
 
   private logger = this.ctx.createLogger('SSLFinder');
 
@@ -36,6 +37,10 @@ export class SSLFinder {
   }
 
   findSSL(): TlsOptions | undefined {
+    if (!this.enableSSL) {
+      return undefined;
+    }
+
     // 1) 优先 SSL_CERT + SSL_KEY
     const explicit = this.tryExplicit(this.sslCert, this.sslKey);
     if (explicit) return { cert: explicit.certBuf, key: explicit.keyBuf };

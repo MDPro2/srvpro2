@@ -18,16 +18,15 @@ export class WsServer {
   constructor(private ctx: Context) {}
 
   async init(): Promise<void> {
-    const wsPort = this.ctx.getConfig('WS_PORT', '0');
-    if (!wsPort || wsPort === '0') {
+    const portNum = this.ctx.config.getInt('WS_PORT');
+    if (!portNum) {
       this.logger.info(
         'WS_PORT not configured, WebSocket server will not start',
       );
       return;
     }
 
-    const host = this.ctx.getConfig('HOST', '::');
-    const portNum = parseInt(wsPort, 10);
+    const host = this.ctx.config.getString('HOST');
 
     // Try to get SSL configuration
     const sslFinder = this.ctx.get(() => SSLFinder);

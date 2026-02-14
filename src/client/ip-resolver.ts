@@ -1,8 +1,6 @@
 import { Context } from '../app';
 import { Client } from './client';
 import * as ipaddr from 'ipaddr.js';
-import { convertStringArray } from '../utility/convert-string-array';
-import { parseConfigBoolean } from '../utility/parse-config-boolean';
 
 export class IpResolver {
   private logger = this.ctx.createLogger('IpResolver');
@@ -11,9 +9,7 @@ export class IpResolver {
   private trustedProxies: Array<[ipaddr.IPv4 | ipaddr.IPv6, number]> = [];
 
   constructor(private ctx: Context) {
-    const proxies = convertStringArray(
-      this.ctx.getConfig('TRUSTED_PROXIES', '127.0.0.0/8,::1/128'),
-    );
+    const proxies = this.ctx.config.getStringArray('TRUSTED_PROXIES');
 
     for (const trusted of proxies) {
       try {
@@ -111,8 +107,8 @@ export class IpResolver {
     client.isLocal = isLocal;
 
     // Increment count for new IP
-    const noConnectCountLimit = parseConfigBoolean(
-      this.ctx.getConfig('NO_CONNECT_COUNT_LIMIT', ''),
+    const noConnectCountLimit = this.ctx.config.getBoolean(
+      'NO_CONNECT_COUNT_LIMIT',
     );
     let connectCount = this.connectedIpCount.get(newIp) || 0;
 

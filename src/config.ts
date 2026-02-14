@@ -1,8 +1,7 @@
 import yaml from 'yaml';
 import * as fs from 'node:fs';
 import { DefaultHostinfo } from './room/default-hostinfo';
-import { Prettify } from 'nfkit';
-import { normalizeConfigByDefaultKeys } from './utility/normalize-config-by-default-keys';
+import { Configurer } from 'nfkit';
 
 export type HostinfoOptions = {
   [K in keyof typeof DefaultHostinfo as `HOSTINFO_${Uppercase<K>}`]: string;
@@ -19,8 +18,11 @@ export const defaultConfig = {
   LOG_LEVEL: 'info',
   // WebSocket port. Format: integer string. '0' means do not open a separate WS port.
   WS_PORT: '0',
+  // Enable SSL for WebSocket server.
+  // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
+  ENABLE_SSL: '0',
   // SSL certificate directory path. Format: filesystem path string.
-  SSL_PATH: '',
+  SSL_PATH: './ssl',
   // SSL certificate file name. Format: file name string.
   SSL_CERT: '',
   // SSL private key file name. Format: file name string.
@@ -75,9 +77,9 @@ export const defaultConfig = {
   ) as HostinfoOptions),
 };
 
-export type Config = Prettify<typeof defaultConfig & HostinfoOptions>;
+export const configurer = new Configurer(defaultConfig);
 
-export function loadConfig(): Config {
+export function loadConfig() {
   let readConfig: Record<string, unknown> = {};
   try {
     const configText = fs.readFileSync('./config.yaml', 'utf-8');
@@ -89,14 +91,8 @@ export function loadConfig(): Config {
     console.error(`Failed to read config: ${e.toString()}`);
   }
 
-  const normalizedConfig = normalizeConfigByDefaultKeys(
-    readConfig,
-    defaultConfig,
-  );
-
-  return {
-    ...defaultConfig,
-    ...normalizedConfig,
-    ...process.env,
-  };
+  return configurer.loadConfig({
+    obj: readConfig,
+    env: process.env,
+  });
 }
