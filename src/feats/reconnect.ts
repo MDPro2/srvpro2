@@ -525,7 +525,7 @@ export class Reconnect {
       this.isReconnectingPlayerOperating(newClient, room); // 重连玩家在操作
 
     if (needResendRequest) {
-      // 重发 lastHintMsg（从 watchMessages 找）
+      // 重发 lastHintMsg（从 messages 找）
       const lastHint = this.findLastHintForClient(newClient, room);
       if (lastHint) {
         await newClient.send(
@@ -714,8 +714,8 @@ export class Reconnect {
     client: Client,
     room: Room,
   ): YGOProMsgHint | undefined {
-    const watchMessages = room.lastDuelRecord?.watchMessages;
-    if (!watchMessages) {
+    const messages = room.lastDuelRecord?.messages;
+    if (!messages) {
       return undefined;
     }
 
@@ -723,8 +723,8 @@ export class Reconnect {
     const clientIngamePos = room.getIngameDuelPosByDuelPos(client.pos);
 
     // 从后往前找
-    for (let i = watchMessages.length - 1; i >= 0; i--) {
-      const msg = watchMessages[i];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
 
       // 只找 Hint 消息
       if (!(msg instanceof YGOProMsgHint)) {

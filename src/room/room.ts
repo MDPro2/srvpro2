@@ -311,11 +311,19 @@ export class Room {
       client.send(new YGOProStocWaitingSide());
     } else if (this.duelStage === DuelStage.Dueling) {
       // Dueling 阶段不发 DeckCount，直接发送观战消息
-      this.lastDuelRecord?.watchMessages.forEach((message) => {
-        client.send(
-          new YGOProStocGameMsg().fromPartial({ msg: message.observerView() }),
-        );
-      });
+      this.lastDuelRecord?.messages
+        .filter(
+          (msg) =>
+            !(msg instanceof YGOProMsgResponseBase) &&
+            msg.getSendTargets().includes(NetPlayerType.OBSERVER),
+        )
+        .forEach((message) => {
+          client.send(
+            new YGOProStocGameMsg().fromPartial({
+              msg: message.observerView(),
+            }),
+          );
+        });
     }
   }
 
@@ -1549,9 +1557,7 @@ export class Room {
     })
     .middleware(YGOProMsgBase, async (message, next) => {
       // record messages for replay
-      if (!(message instanceof YGOProMsgResponseBase)) {
-        this.lastDuelRecord.watchMessages.push(message);
-      }
+      this.lastDuelRecord.messages.push(message);
       return next();
     })
     .middleware(YGOProMsgRetry, async (message, next) => {
