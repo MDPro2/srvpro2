@@ -960,18 +960,20 @@ export class Room {
   turnCount = 0;
   turnIngamePos = 0;
   phase = undefined;
-  private timerState = new TimerState();
-  private lastResponseRequestMsgType = 0;
+  timerState = new TimerState();
+  lastResponseRequestMsg?: YGOProMsgResponseBase;
+  isRetrying = false;
   private get hasTimeLimit() {
     return this.hostinfo.time_limit > 0;
   }
 
-  private resetDuelTimerState() {
+  private resetResponseRequestState() {
     const initialTime = this.hasTimeLimit
       ? Math.max(0, this.hostinfo.time_limit) * 1000
       : 0;
     this.timerState.reset(initialTime);
-    this.lastResponseRequestMsgType = 0;
+    this.lastResponseRequestMsg = undefined;
+    this.isRetrying = false;
   }
 
   private clearResponseTimer(settleElapsed = false) {
@@ -1225,7 +1227,7 @@ export class Room {
     this.turnCount = 0;
     this.turnIngamePos = 0;
     this.phase = undefined;
-    this.resetDuelTimerState();
+    this.resetResponseRequestState();
 
     await this.dispatchGameMsg(watcherMsg.msg);
     await this.ctx.dispatch(
@@ -1427,7 +1429,8 @@ export class Room {
     }
 
     if (message instanceof YGOProMsgResponseBase) {
-      this.lastResponseRequestMsgType = getMessageIdentifier(message);
+      this.lastResponseRequestMsg = message;
+      this.isRetrying = false;
       this.responsePos = this.getIngameDuelPosByDuelPos(
         message.responsePlayer(),
       );
@@ -1439,7 +1442,7 @@ export class Room {
       if (this.lastDuelRecord.responses.length > 0) {
         this.lastDuelRecord.responses.pop();
       }
-      this.lastResponseRequestMsgType = OcgcoreCommonConstants.MSG_RETRY;
+      this.isRetrying = true;
       await this.sendWaitingToNonOperator(
         this.getIngameDuelPosByDuelPos(this.responsePos),
       );
@@ -1448,7 +1451,7 @@ export class Room {
     }
     if (
       this.responsePos != null &&
-      this.lastResponseRequestMsgType === 0 &&
+      !this.lastResponseRequestMsg &&
       !(message instanceof YGOProMsgResponseBase)
     ) {
       this.responsePos = undefined;
@@ -1622,14 +1625,20 @@ export class Room {
       return;
     }
     const responsePos = this.responsePos;
-    const responseRequestMsgType = this.lastResponseRequestMsgType;
+    const responseRequestMsg = this.lastResponseRequestMsg;
     const response = Buffer.from(msg.response);
     this.lastDuelRecord.responses.push(response);
     if (this.hasTimeLimit) {
       this.clearResponseTimer(true);
-      this.increaseResponseTime(responsePos, responseRequestMsgType, response);
+      const msgType = this.isRetrying
+        ? OcgcoreCommonConstants.MSG_RETRY
+        : responseRequestMsg
+          ? getMessageIdentifier(responseRequestMsg)
+          : 0;
+      this.increaseResponseTime(responsePos, msgType, response);
     }
-    this.lastResponseRequestMsgType = 0;
+    this.lastResponseRequestMsg = undefined;
+    this.isRetrying = false;
     await this.ocgcore.setResponse(msg.response);
     return this.advance();
   }

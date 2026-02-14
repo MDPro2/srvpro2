@@ -81,10 +81,10 @@ export class Client {
     return this;
   }
 
-  disconnected = false;
+  disconnected?: Date;
 
   disconnect(): undefined {
-    this.disconnected = true;
+    this.disconnected = new Date();
     this.disconnectSubject.next();
     this.disconnectSubject.complete();
     this._disconnect().then();
