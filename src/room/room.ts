@@ -1557,7 +1557,9 @@ export class Room {
     })
     .middleware(YGOProMsgBase, async (message, next) => {
       // record messages for replay
-      this.lastDuelRecord.messages.push(message);
+      if (!(message instanceof YGOProMsgRetry)) {
+        this.lastDuelRecord.messages.push(message);
+      }
       return next();
     })
     .middleware(YGOProMsgRetry, async (message, next) => {
