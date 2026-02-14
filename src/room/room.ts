@@ -1232,7 +1232,7 @@ export class Room {
     await this.dispatchGameMsg(watcherMsg.msg);
     await this.ctx.dispatch(
       new OnRoomDuelStart(this),
-      this.gatIngameOperatingPlayer(this.turnIngamePos),
+      this.getIngameOperatingPlayer(this.turnIngamePos),
     );
 
     await Promise.all([
@@ -1267,7 +1267,7 @@ export class Room {
     this.phase = phase;
   }
 
-  gatIngameOperatingPlayer(ingameDuelPos: number): Client | undefined {
+  getIngameOperatingPlayer(ingameDuelPos: number): Client | undefined {
     const players = this.getIngameDuelPosPlayers(ingameDuelPos);
     if (!this.isTag) {
       return players[0];
@@ -1292,7 +1292,7 @@ export class Room {
     return players[0];
   }
 
-  private async refreshLocations(
+  async refreshLocations(
     refresh: RequireQueryLocation,
     options: { queryFlag?: number; sendToClient?: MayBeArray<Client> } = {},
   ) {
@@ -1318,7 +1318,7 @@ export class Room {
     }
   }
 
-  private async refreshSingle(
+  async refreshSingle(
     refresh: RequireQueryCardLocation,
     options: { queryFlag?: number; sendToClient?: MayBeArray<Client> } = {},
   ) {
@@ -1366,7 +1366,7 @@ export class Room {
   }
 
   private async sendWaitingToNonOperator(ingameDuelPos: number) {
-    const operatingPlayer = this.gatIngameOperatingPlayer(ingameDuelPos);
+    const operatingPlayer = this.getIngameOperatingPlayer(ingameDuelPos);
     const noOps = this.playingPlayers.filter((p) => p !== operatingPlayer);
     await Promise.all(
       noOps.map((p) =>
@@ -1414,7 +1414,7 @@ export class Room {
               }
               const duelPos = this.getIngameDuelPos(c);
               const playerView = message.playerView(duelPos);
-              const operatingPlayer = this.gatIngameOperatingPlayer(duelPos);
+              const operatingPlayer = this.getIngameOperatingPlayer(duelPos);
               return sendGameMsg(
                 c,
                 c === operatingPlayer ? playerView : playerView.teammateView(),
@@ -1466,7 +1466,7 @@ export class Room {
       message = await this.localGameMsgDispatcher.dispatch(message);
       message = await this.ctx.dispatch(
         message,
-        this.gatIngameOperatingPlayer(this.turnIngamePos),
+        this.getIngameOperatingPlayer(this.turnIngamePos),
       );
     }
     if (options.route) {
@@ -1513,7 +1513,7 @@ export class Room {
     })
     .middleware(YGOProMsgRetry, async (message, next) => {
       if (this.responsePos != null) {
-        const op = this.gatIngameOperatingPlayer(
+        const op = this.getIngameOperatingPlayer(
           this.getIngameDuelPosByDuelPos(this.responsePos),
         );
         await op.send(
@@ -1582,7 +1582,7 @@ export class Room {
     }
     if (
       client !==
-      this.gatIngameOperatingPlayer(
+      this.getIngameOperatingPlayer(
         this.getIngameDuelPosByDuelPos(this.responsePos),
       )
     ) {
@@ -1617,7 +1617,7 @@ export class Room {
     if (
       this.responsePos == null ||
       client !==
-        this.gatIngameOperatingPlayer(
+        this.getIngameOperatingPlayer(
           this.getIngameDuelPosByDuelPos(this.responsePos),
         ) ||
       !this.ocgcore

@@ -116,7 +116,12 @@ export class IpResolver {
     );
     let connectCount = this.connectedIpCount.get(newIp) || 0;
 
-    if (!noConnectCountLimit && !isLocal && !this.isTrustedProxy(newIp)) {
+    if (
+      !noConnectCountLimit &&
+      !isLocal &&
+      !client.isInternal &&
+      !this.isTrustedProxy(newIp)
+    ) {
       connectCount++;
       this.connectedIpCount.set(newIp, connectCount);
     } else {

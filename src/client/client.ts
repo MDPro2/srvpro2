@@ -39,6 +39,7 @@ export class Client {
   // in handshake
   ip = '';
   isLocal = false;
+  isInternal = false;
 
   private logger = this.ctx.createLogger(this.constructor.name);
   private disconnectSubject = new Subject<void>();
