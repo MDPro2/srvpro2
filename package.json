@@ -65,6 +65,7 @@
     "aragami": "^1.2.10",
     "axios": "^1.13.5",
     "better-lock": "^3.2.0",
+    "crypto-random-string": "3.3.1",
     "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
     "ipaddr.js": "^2.3.0",

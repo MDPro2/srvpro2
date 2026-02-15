@@ -92,6 +92,8 @@ import { canIncreaseTime } from '../utility/can-increase-time';
 import { TimerState } from './timer-state';
 import { makeArray } from 'aragami/dist/src/utility/utility';
 import path from 'path';
+import { OnRoomCreate } from './room-event/on-room-create';
+import { OnRoomFinalize } from './room-event/on-room-finalize';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -169,6 +171,7 @@ export class Room {
     if (this.hostinfo.lflist >= 0) {
       this.lflist = (await this.findLFList()) || blankLFList;
     }
+    await this.ctx.dispatch(new OnRoomCreate(this), undefined as any);
     return this;
   }
 
@@ -211,6 +214,7 @@ export class Room {
       },
       'Finalizing room',
     );
+    await this.ctx.dispatch(new OnRoomFinalize(this), this.allPlayers[0]);
     await this.cleanPlayers(sendReplays);
     while (this.finalizors.length) {
       const finalizor = this.finalizors.pop()!;
