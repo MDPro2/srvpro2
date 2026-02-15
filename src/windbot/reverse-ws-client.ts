@@ -8,12 +8,11 @@ export class ReverseWsClient extends Client {
   constructor(
     ctx: Context,
     private sock: WebSocket,
-    private endpointIp: string,
   ) {
     super(ctx);
     this.isInternal = true;
     this.isLocal = true;
-    this.ip = endpointIp;
+    this.ip = '255.255.255.255';
   }
 
   protected _send(data: Buffer): Promise<void> {

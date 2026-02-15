@@ -217,30 +217,6 @@ export class WindBotProvider {
     return url.protocol === 'ws:' || url.protocol === 'wss:';
   }
 
-  private async resolveEndpointIp(url: URL) {
-    const hostname = url.hostname;
-    if (!hostname) {
-      return '';
-    }
-    if (isIP(hostname)) {
-      return hostname;
-    }
-    try {
-      const resolved = await dns.lookup(hostname);
-      return resolved.address;
-    } catch (error) {
-      this.logger.warn(
-        {
-          hostname,
-          endpoint: url.toString(),
-          error: (error as Error).toString(),
-        },
-        'Failed to resolve reverse ws endpoint ip',
-      );
-      return hostname;
-    }
-  }
-
   private async createReverseWsConnection(url: URL) {
     return new Promise<WebSocket>((resolve, reject) => {
       const sock = new WebSocket(url.toString());
@@ -268,9 +244,8 @@ export class WindBotProvider {
     url: URL,
   ) {
     try {
-      const endpointIp = await this.resolveEndpointIp(url);
       const sock = await this.createReverseWsConnection(url);
-      const client = new ReverseWsClient(this.ctx, sock, endpointIp);
+      const client = new ReverseWsClient(this.ctx, sock);
       this.clientHandler.handleClient(client).catch((error) => {
         this.logger.warn(
           {
