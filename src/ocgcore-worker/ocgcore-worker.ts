@@ -244,17 +244,27 @@ export class OcgcoreWorker {
               0,
             );
             if (consumed < serialized.raw.length) {
+              const remainingBytes = serialized.raw.slice(consumed);
+              let trailingEncodeError = '';
+              try {
+                const s = YGOProMessages.getInstanceFromPayload(remainingBytes);
+                if (s) {
+                  trailingEncodeError = `[trailing: ${s.constructor.name} ${JSON.stringify(s)}]`;
+                }
+              } catch (e) {
+                trailingEncodeError =
+                  e instanceof Error ? e.message : String(e);
+              }
               const nextIdentifier = serialized.raw[consumed];
               encodeError =
                 `decoded ${messages.length} message(s) but left trailing bytes: ` +
-                `total=${serialized.raw.length}, consumed=${consumed}, nextIdentifier=${nextIdentifier ?? 'n/a'}`;
+                `total=${serialized.raw.length}, consumed=${consumed}, nextIdentifier=${nextIdentifier ?? 'n/a'}, lastMessage=${message.constructor.name}, anotherLastMessage=${messages.length > 1 ? messages[messages.length - 2].constructor.name : 'n/a'}, trailingEncodeError=${trailingEncodeError}`;
             }
           }
         } catch (error) {
           message = undefined;
           messages = undefined;
-          encodeError =
-            error instanceof Error ? error.message : String(error);
+          encodeError = error instanceof Error ? error.message : String(error);
         }
       }
 

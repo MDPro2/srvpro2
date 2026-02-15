@@ -1561,10 +1561,12 @@ export class Room {
     acceptResult: () => true,
   })
     .middleware(YGOProMsgBase, async (message, next) => {
-      this.logger.debug(
-        { msgName: message.constructor.name },
-        'Received game message',
-      );
+      if (!isUpdateMessage(message)) {
+        this.logger.debug(
+          { msgName: message.constructor.name },
+          'Received game message',
+        );
+      }
       return next();
     })
     .middleware(YGOProMsgNewTurn, async (message, next) => {
