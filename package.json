@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "lint": "eslint --fix .",
-    "build": "tsc",
+    "build": "node scripts/clean-dist.js && tsc",
     "gen:config-example": "npm run build && node dist/src/scripts/gen-config-example.js",
     "test": "jest --passWithNoTests",
     "dev": "npm run build && npm start",
