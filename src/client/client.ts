@@ -124,6 +124,9 @@ export class Client {
   }
 
   async sendChat(msg: string, type: number = ChatColor.BABYBLUE) {
+    if (this.isInternal) {
+      return;
+    }
     if (type >= ChatColor.RED) {
       msg = `[Server]: ${msg}`;
     }

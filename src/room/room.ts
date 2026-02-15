@@ -406,6 +406,9 @@ export class Room {
   }
 
   private async sendReplays(client: Client) {
+    if (client.isInternal) {
+      return;
+    }
     for (let i = 0; i < this.duelRecords.length; i++) {
       const duelRecord = this.duelRecords[i];
       await client.sendChat(
@@ -1167,7 +1170,9 @@ export class Room {
     );
     if (this.isPosSwapped) {
       this.playingPlayers.forEach((p) => {
-        duelRecord.players[this.getIngameDuelPos(p)] = {
+        // Keep full seat order (0/1/2/3 in tag), matching tag_duel.cpp swap:
+        // swap(0,2) and swap(1,3)
+        duelRecord.players[this.getIngamePos(p)] = {
           name: p.name,
           deck: p.deck!,
         };
