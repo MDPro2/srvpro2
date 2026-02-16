@@ -1,5 +1,6 @@
 import { ChatColor } from 'ygopro-msg-encode';
 import { Context } from '../app';
+import { Client } from '../client';
 import { OnRoomJoin } from '../room/room-event/on-room-join';
 
 declare module '../room' {
@@ -9,15 +10,19 @@ declare module '../room' {
   }
 }
 
+declare module '../client' {
+  interface Client {
+    configWelcomeSent?: boolean;
+  }
+}
+
 export class Welcome {
   private welcomeMessage = this.ctx.config.getString('WELCOME');
 
   constructor(private ctx: Context) {
     this.ctx.middleware(OnRoomJoin, async (event, client, next) => {
       const room = event.room;
-      if (this.welcomeMessage) {
-        await client.sendChat(this.welcomeMessage, ChatColor.GREEN);
-      }
+      await this.sendConfigWelcome(client);
       if (room.welcome) {
         await client.sendChat(room.welcome, ChatColor.BABYBLUE);
       }
@@ -26,5 +31,13 @@ export class Welcome {
       }
       return next();
     });
+  }
+
+  async sendConfigWelcome(client: Client) {
+    if (!this.welcomeMessage || client.configWelcomeSent) {
+      return;
+    }
+    client.configWelcomeSent = true;
+    await client.sendChat(this.welcomeMessage, ChatColor.GREEN);
   }
 }

@@ -52,6 +52,14 @@ export class ClientHandler {
       .middleware(
         YGOProCtosBase,
         async (msg, client, next) => {
+          const bypassEstablished =
+            msg instanceof YGOProCtosJoinGame &&
+            msg.bypassEstablished;
+          if (bypassEstablished) {
+            delete msg.bypassEstablished;
+            return next();
+          }
+
           const isPreHandshakeMsg = [
             YGOProCtosExternalAddress,
             YGOProCtosPlayerInfo,
@@ -123,5 +131,11 @@ export class ClientHandler {
       .catch(() => {
         client.disconnect();
       });
+  }
+}
+
+declare module 'ygopro-msg-encode' {
+  interface YGOProCtosJoinGame {
+    bypassEstablished?: boolean;
   }
 }

@@ -152,6 +152,15 @@ export const defaultConfig = {
   // Room hostinfo defaults expanded into HOSTINFO_* keys.
   // Format: each HOSTINFO_* value is a string; numeric fields use integer strings.
   // Unit note: HOSTINFO_TIME_LIMIT is in seconds (s).
+  // Enable blank-pass panel menu.
+  // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
+  ENABLE_MENU: '0',
+  // Blank-pass panel definition in JSON object format.
+  // Format: {"Display Text": "ROOM_PASS"}.
+  // - key: text shown to client; supports i18n placeholder like "#{menu_random_duel}".
+  // - value(string): equivalent room password, then redispatches CTOS_JOIN_GAME with this pass.
+  // - value(object): submenu; empty object {} means "return to previous level".
+  MENU: '{"#{menu_random_duel}":"","#{menu_random_duel_match}":"M","#{menu_ai_duel}":"AI","#{menu_more}":{"#{menu_random_duel_single}":"S","#{menu_random_duel_tag}":"T","#{menu_ai_duel_match}":"AI,M","#{menu_ai_duel_tag}":"AI,T","#{menu_return}":{}}}',
   ...(Object.fromEntries(
     Object.entries(DefaultHostinfo).map(([key, value]) => [
       `HOSTINFO_${key.toUpperCase()}`,

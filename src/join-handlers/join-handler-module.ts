@@ -9,6 +9,7 @@ import { RandomDuelJoinHandler } from './random-duel-join-handler';
 import { BadwordPlayerInfoChecker } from './badword-player-info-checker';
 import { JoinBlankPassRandomDuel } from './join-blank-pass-random-duel';
 import { JoinBlankPassWindbotAi } from './join-blank-pass-windbot-ai';
+import { JoinBlankPassMenu } from './join-blank-pass-menu';
 
 export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(ClientVersionCheck)
@@ -18,6 +19,7 @@ export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(RandomDuelJoinHandler)
   .provide(JoinWindbotAi)
   .provide(JoinRoom)
+  .provide(JoinBlankPassMenu)
   .provide(JoinBlankPassRandomDuel)
   .provide(JoinBlankPassWindbotAi)
   .provide(JoinFallback)

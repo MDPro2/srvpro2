@@ -63,6 +63,17 @@ randomDuelDisableChat: 0
 randomDuelReadyTime: 20
 randomDuelHangTimeout: 90
 sideTimeoutMinutes: 3
+enableMenu: 0
+menu:
+  "#{menu_random_duel}": ""
+  "#{menu_random_duel_match}": M
+  "#{menu_ai_duel}": AI
+  "#{menu_more}":
+    "#{menu_random_duel_single}": S
+    "#{menu_random_duel_tag}": T
+    "#{menu_ai_duel_match}": AI,M
+    "#{menu_ai_duel_tag}": AI,T
+    "#{menu_return}": {}
 hostinfoLflist: 0
 hostinfoRule: 0
 hostinfoMode: 0
