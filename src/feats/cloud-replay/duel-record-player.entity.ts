@@ -53,7 +53,7 @@ export class DuelRecordPlayer extends BaseTimeEntity {
   clientKey!: string; // getClientKey(client)
 
   @Column('bool')
-  isFirst!: boolean; // 如果 room.getIngameDuelPos(client) === 0 就是 true
+  isFirst!: boolean; // wasSwapped ? duelPos==1 : duelPos==0
 
   @Index()
   @Column('smallint')
@@ -70,6 +70,12 @@ export class DuelRecordPlayer extends BaseTimeEntity {
 
   @Column('smallint')
   currentDeckMainc!: number; // client.currentDeck.main.length
+
+  @Column('text', {})
+  ingameDeckBuffer!: string; // duelRecord.players[x].deck.toPayload() base64
+
+  @Column('smallint')
+  ingameDeckMainc!: number; // duelRecord.players[x].deck.main.length
 
   @Column('bool')
   winner!: boolean;

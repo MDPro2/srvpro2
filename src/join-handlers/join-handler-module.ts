@@ -4,6 +4,7 @@ import { ClientVersionCheck } from '../feats';
 import { JoinWindbotAi, JoinWindbotToken } from '../feats/windbot';
 import { JoinRoom } from './join-room';
 import { JoinRoomIp } from './join-room-ip';
+import { CloudReplayJoinHandler } from './cloud-replay-join-handler';
 import { JoinFallback } from './fallback';
 import { JoinPrechecks } from './join-prechecks';
 import { RandomDuelJoinHandler } from './random-duel-join-handler';
@@ -20,6 +21,7 @@ export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(RandomDuelJoinHandler)
   .provide(JoinWindbotAi)
   .provide(JoinRoomIp)
+  .provide(CloudReplayJoinHandler)
   .provide(JoinRoom)
   .provide(JoinBlankPassMenu)
   .provide(JoinBlankPassRandomDuel)

@@ -485,6 +485,7 @@ export class Room {
     this.resetResponseState();
     this.disposeOcgcore();
     this.ocgcore = undefined;
+    const wasSwapped = this.isPosSwapped;
     if (this.duelStage === DuelStage.Siding) {
       await Promise.all(
         this.playingPlayers
@@ -525,7 +526,7 @@ export class Room {
       await this.changeSide();
     }
     await this.ctx.dispatch(
-      new OnRoomWin(this, exactWinMsg, winMatch),
+      new OnRoomWin(this, exactWinMsg, winMatch, wasSwapped),
       this.getDuelPosPlayers(duelPos)[0],
     );
     if (winMatch) {
@@ -869,7 +870,14 @@ export class Room {
       const changeMsg = client.prepareChangePacket();
       this.allPlayers.forEach((p) => p.send(changeMsg));
       if (this.noHost) {
-        const allReadyAndFull = this.players.every((player) => !!player?.deck);
+        let allReadyAndFull = true;
+        for (let i = 0; i < this.players.length; i++) { 
+          const p = this.players[i];
+          if (!p || !p.deck) {
+            allReadyAndFull = false;
+            break;
+          }
+        }
         if (allReadyAndFull) {
           await this.startGame();
         }

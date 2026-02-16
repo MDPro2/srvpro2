@@ -7,6 +7,7 @@ export class OnRoomWin extends RoomEvent {
     room: Room,
     public winMsg: YGOProMsgWin,
     public winMatch = false,
+    public wasSwapped = false,
   ) {
     super(room);
   }

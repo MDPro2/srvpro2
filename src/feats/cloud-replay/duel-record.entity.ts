@@ -64,7 +64,7 @@ export class DuelRecordEntity extends BaseTimeEntity {
   @Column({
     type: 'text',
   })
-  responses!: string; // duelRecord.responses 直接拼接 base64
+  responses!: string; // duelRecord.responses 按 [uint8 len][payload]... 拼接再 base64
 
   // 32 bytes binary seed => 44 chars base64.
   @Column({

@@ -33,7 +33,7 @@ export class DuelRecord {
     });
   }
 
-  toYrp(room: Room) {
+  toYrp(room: Pick<Room, 'hostinfo' | 'isTag'>) {
     const isTag = room.isTag;
 
     // Create replay header

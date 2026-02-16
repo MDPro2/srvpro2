@@ -1,0 +1,20 @@
+import { YGOProCtosJoinGame } from 'ygopro-msg-encode';
+import { Context } from '../app';
+import { CloudReplayService } from '../feats';
+
+export class CloudReplayJoinHandler {
+  private cloudReplayService = this.ctx.get(() => CloudReplayService);
+
+  constructor(private ctx: Context) {
+    this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
+      const pass = (msg.pass || '').trim();
+      if (!pass) {
+        return next();
+      }
+      if (await this.cloudReplayService.tryHandleJoinPass(pass, client)) {
+        return;
+      }
+      return next();
+    });
+  }
+}
