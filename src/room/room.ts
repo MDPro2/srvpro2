@@ -71,8 +71,14 @@ import { OnRoomLeave } from './room-event/on-room-leave';
 import { OnRoomWin } from './room-event/on-room-win';
 import { OnRoomJoinPlayer } from './room-event/on-room-join-player';
 import { OnRoomJoinObserver } from './room-event/on-room-join-observer';
-import { OnRoomLeavePlayer } from './room-event/on-room-leave-player';
-import { OnRoomLeaveObserver } from './room-event/on-room-leave-observer';
+import {
+  OnRoomLeavePlayer,
+  RoomLeavePlayerReason,
+} from './room-event/on-room-leave-player';
+import {
+  OnRoomLeaveObserver,
+  RoomLeaveObserverReason,
+} from './room-event/on-room-leave-observer';
 import { OnRoomMatchStart } from './room-event/on-room-match-start';
 import { OnRoomGameStart } from './room-event/on-room-game-start';
 import YGOProDeck from 'ygopro-deck-encode';
@@ -590,9 +596,24 @@ export class Room {
 
     // 触发具体的离开事件
     if (wasObserver) {
-      await this.ctx.dispatch(new OnRoomLeaveObserver(this), client);
+      await this.ctx.dispatch(
+        new OnRoomLeaveObserver(
+          this,
+          RoomLeaveObserverReason.Disconnect,
+          _msg.bySystem,
+        ),
+        client,
+      );
     } else {
-      await this.ctx.dispatch(new OnRoomLeavePlayer(this, oldPos), client);
+      await this.ctx.dispatch(
+        new OnRoomLeavePlayer(
+          this,
+          oldPos,
+          RoomLeavePlayerReason.Disconnect,
+          _msg.bySystem,
+        ),
+        client,
+      );
     }
 
     client.roomName = undefined;
@@ -638,7 +659,10 @@ export class Room {
     this.allPlayers.forEach((p) => p.send(this.watcherSizeMessage));
 
     // 触发事件
-    await this.ctx.dispatch(new OnRoomLeavePlayer(this, oldPos), client);
+    await this.ctx.dispatch(
+      new OnRoomLeavePlayer(this, oldPos, RoomLeavePlayerReason.ToObserver),
+      client,
+    );
     await this.ctx.dispatch(new OnRoomJoinObserver(this), client);
   }
 
@@ -675,7 +699,10 @@ export class Room {
       this.allPlayers.forEach((p) => p.send(this.watcherSizeMessage));
 
       // 触发事件
-      await this.ctx.dispatch(new OnRoomLeaveObserver(this), client);
+      await this.ctx.dispatch(
+        new OnRoomLeaveObserver(this, RoomLeaveObserverReason.ToDuelist),
+        client,
+      );
       await this.ctx.dispatch(new OnRoomJoinPlayer(this), client);
     } else if (this.isTag) {
       // TAG 模式下，已经是玩家，切换到另一个空位
@@ -708,7 +735,14 @@ export class Room {
       await client.sendTypeChange();
 
       // 触发事件 (玩家切换位置)
-      await this.ctx.dispatch(new OnRoomLeavePlayer(this, oldPos), client);
+      await this.ctx.dispatch(
+        new OnRoomLeavePlayer(
+          this,
+          oldPos,
+          RoomLeavePlayerReason.SwitchPosition,
+        ),
+        client,
+      );
       await this.ctx.dispatch(new OnRoomJoinPlayer(this), client);
     }
   }

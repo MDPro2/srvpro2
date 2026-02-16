@@ -45,6 +45,10 @@ export class ClientHandler {
         client.vpass = vpass || '';
         return next();
       })
+      .middleware(YGOProCtosJoinGame, async (msg, client, next) => {
+        client.roompass = msg.pass || '';
+        return next();
+      })
       .middleware(
         YGOProCtosBase,
         async (msg, client, next) => {

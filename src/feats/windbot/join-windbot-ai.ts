@@ -1,5 +1,6 @@
 import { ChatColor, YGOProCtosJoinGame } from 'ygopro-msg-encode';
 import { Context } from '../../app';
+import { Client } from '../../client';
 import { WindBotProvider } from './windbot-provider';
 import { RoomManager } from '../../room';
 import { MAX_ROOM_NAME_LENGTH } from '../../constants/room';
@@ -19,71 +20,86 @@ export class JoinWindbotAi {
       return;
     }
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
-      msg.pass = (msg.pass || '').trim();
-      if (!msg.pass || !msg.pass.toUpperCase().startsWith('AI')) {
+      if (!(await this.joinByPass(msg.pass, client))) {
         return next();
       }
-
-      const existingRoom = this.roomManager.findByName(msg.pass);
-      if (existingRoom) {
-        existingRoom.noHost = true;
-        return existingRoom.join(client);
-      }
-
-      const requestedBotName = this.parseRequestedBotName(msg.pass);
-      if (
-        requestedBotName &&
-        !this.windbotProvider.getBotByNameOrDeck(requestedBotName)
-      ) {
-        return client.die('#{windbot_deck_not_found}', ChatColor.RED);
-      }
-
-      const roomName = this.generateWindbotRoomName(msg.pass);
-      if (!roomName) {
-        return client.die('#{create_room_failed}', ChatColor.RED);
-      }
-      if (getDisplayLength(roomName) > 20) {
-        return client.die('#{windbot_name_too_long}', ChatColor.RED);
-      }
-
-      const room = await this.roomManager.findOrCreateByName(roomName, {
-        rule: 5,
-        lflist: -1,
-        time_limit: 0,
-      });
-      room.noHost = true;
-      room.noReconnect = true;
-      room.windbot = {
-        name: '',
-        deck: '',
-      };
-      const windbotOptions = parseWindbotOptions(room.name);
-
-      await room.join(client);
-      const requestCount = room.isTag ? 3 : 1;
-      for (let i = 0; i < requestCount; i += 1) {
-        const requestOk = await this.windbotProvider.requestWindbotJoin(
-          room,
-          requestedBotName,
-          windbotOptions,
-        );
-        if (!requestOk) {
-          await room.finalize();
-          return;
-        }
-      }
-
-      this.logger.debug(
-        {
-          player: client.name,
-          roomName: room.name,
-          botName: room.windbot?.name,
-          requestCount,
-        },
-        'Created windbot room',
-      );
       return;
     });
+  }
+
+  async joinByPass(pass: string, client: Client) {
+    const normalizedPass = (pass || '').trim();
+    if (
+      !this.windbotProvider.enabled ||
+      !normalizedPass ||
+      !normalizedPass.toUpperCase().startsWith('AI')
+    ) {
+      return false;
+    }
+
+    const existingRoom = this.roomManager.findByName(normalizedPass);
+    if (existingRoom) {
+      existingRoom.noHost = true;
+      await existingRoom.join(client);
+      return true;
+    }
+
+    const requestedBotName = this.parseRequestedBotName(normalizedPass);
+    if (
+      requestedBotName &&
+      !this.windbotProvider.getBotByNameOrDeck(requestedBotName)
+    ) {
+      await client.die('#{windbot_deck_not_found}', ChatColor.RED);
+      return true;
+    }
+
+    const roomName = this.generateWindbotRoomName(normalizedPass);
+    if (!roomName) {
+      await client.die('#{create_room_failed}', ChatColor.RED);
+      return true;
+    }
+    if (getDisplayLength(roomName) > 20) {
+      await client.die('#{windbot_name_too_long}', ChatColor.RED);
+      return true;
+    }
+
+    const room = await this.roomManager.findOrCreateByName(roomName, {
+      rule: 5,
+      lflist: -1,
+      time_limit: 0,
+    });
+    room.noHost = true;
+    room.noReconnect = true;
+    room.windbot = {
+      name: '',
+      deck: '',
+    };
+    const windbotOptions = parseWindbotOptions(room.name);
+
+    await room.join(client);
+    const requestCount = room.isTag ? 3 : 1;
+    for (let i = 0; i < requestCount; i += 1) {
+      const requestOk = await this.windbotProvider.requestWindbotJoin(
+        room,
+        requestedBotName,
+        windbotOptions,
+      );
+      if (!requestOk) {
+        await room.finalize();
+        return true;
+      }
+    }
+
+    this.logger.debug(
+      {
+        player: client.name,
+        roomName: room.name,
+        botName: room.windbot?.name,
+        requestCount,
+      },
+      'Created windbot room',
+    );
+    return true;
   }
 
   private parseRequestedBotName(pass: string) {

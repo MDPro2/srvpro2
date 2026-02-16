@@ -2,24 +2,17 @@ import { ChatColor, YGOProCtosJoinGame } from 'ygopro-msg-encode';
 import { Context } from '../app';
 import { RandomDuelProvider } from '../feats';
 
-export class RandomDuelJoinHandler {
+export class JoinBlankPassRandomDuel {
   private randomDuelProvider = this.ctx.get(() => RandomDuelProvider);
 
   constructor(private ctx: Context) {
-    if (!this.randomDuelProvider.enabled) {
-      return;
-    }
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       msg.pass = (msg.pass || '').trim();
-      if (!msg.pass) {
-        return next();
-      }
-      const type = this.randomDuelProvider.resolveRandomType(msg.pass);
-      if (type == null) {
+      if (msg.pass || !this.randomDuelProvider.enabled) {
         return next();
       }
       const result = await this.randomDuelProvider.findOrCreateRandomRoom(
-        type,
+        '',
         client.ip,
       );
       if (result.errorMessage) {

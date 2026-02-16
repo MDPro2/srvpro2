@@ -1,3 +1,17 @@
+import { Room } from '../room';
 import { RoomEvent } from './room-event';
 
-export class OnRoomLeaveObserver extends RoomEvent {}
+export enum RoomLeaveObserverReason {
+  Disconnect = 'disconnect',
+  ToDuelist = 'to_duelist',
+}
+
+export class OnRoomLeaveObserver extends RoomEvent {
+  constructor(
+    room: Room,
+    public reason: RoomLeaveObserverReason,
+    public bySystem = false,
+  ) {
+    super(room);
+  }
+}

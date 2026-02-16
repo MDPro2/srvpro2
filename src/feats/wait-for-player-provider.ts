@@ -19,6 +19,7 @@ import {
   Room,
   RoomManager,
 } from '../room';
+import { OnClientWaitTimeout } from './random-duel-events';
 
 export interface WaitForPlayerConfig {
   roomFilter: (room: Room) => boolean;
@@ -394,6 +395,10 @@ export class WaitForPlayerProvider {
       `${latestTarget.name} #{kicked_by_system}`,
       ChatColor.RED,
     );
+    await this.ctx.dispatch(
+      new OnClientWaitTimeout(room, latestTarget, 'ready'),
+      latestTarget,
+    );
     latestTarget.disconnect();
   }
 
@@ -440,6 +445,10 @@ export class WaitForPlayerProvider {
       await room.sendChat(
         `${waitingPlayer.name} #{kicked_by_system}`,
         ChatColor.RED,
+      );
+      await this.ctx.dispatch(
+        new OnClientWaitTimeout(room, waitingPlayer, 'hang'),
+        waitingPlayer,
       );
       waitingPlayer.disconnect();
       return;

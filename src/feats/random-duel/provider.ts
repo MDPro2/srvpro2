@@ -1,5 +1,10 @@
 import { CacheKey } from 'aragami';
-import { ChatColor, YGOProCtosChat } from 'ygopro-msg-encode';
+import {
+  ChatColor,
+  NetPlayerType,
+  YGOProCtosChat,
+  YGOProCtosSurrender,
+} from 'ygopro-msg-encode';
 import { Context } from '../../app';
 import { Client } from '../../client';
 import { MAX_ROOM_NAME_LENGTH } from '../../constants/room';
@@ -7,15 +12,32 @@ import {
   DuelStage,
   OnRoomFinalize,
   OnRoomJoinPlayer,
+  OnRoomLeavePlayer,
+  RoomLeavePlayerReason,
   Room,
   RoomManager,
 } from '../../room';
 import { fillRandomString } from '../../utility/fill-random-string';
+import {
+  OnClientBadwordViolation,
+  OnClientWaitTimeout,
+} from '../random-duel-events';
 import { CanReconnectCheck } from '../reconnect';
 import { WaitForPlayerProvider } from '../wait-for-player-provider';
 import { RandomDuelScore } from './score.entity';
+import {
+  buildFleeFreeKey,
+  formatRemainText,
+  RandomDuelPunishReason,
+  renderReasonText,
+} from './utility/random-duel-discipline';
 
 const RANDOM_DUEL_TTL = 24 * 60 * 60 * 1000;
+const RANDOM_DUEL_WARN_COUNT = 2;
+const RANDOM_DUEL_DEPRECATED_COUNT = 3;
+const RANDOM_DUEL_BANNED_COUNT = 6;
+const RANDOM_DUEL_EARLY_SURRENDER_TURN = 3;
+
 const BUILTIN_RANDOM_TYPES = [
   'S',
   'M',
@@ -39,11 +61,41 @@ class RandomDuelOpponentCache {
   opponentIp = '';
 }
 
+class RandomDuelDisciplineCache {
+  @CacheKey()
+  ip!: string;
+
+  count = 0;
+  reasons: RandomDuelPunishReason[] = [];
+  needTip = false;
+  abuseCount = 0;
+  expireAt = 0;
+}
+
+class RandomDuelFleeFreeCache {
+  @CacheKey()
+  key!: string;
+
+  enabled = false;
+}
+
 declare module '../../room' {
   interface Room {
     randomType?: string;
     randomDuelMaxPlayer?: number;
+    randomDuelDeprecated?: boolean;
+    randomDuelScoreHandled?: boolean;
   }
+}
+
+interface RandomDuelJoinState {
+  deprecated: boolean;
+  errorMessage?: string;
+}
+
+interface FindOrCreateRandomRoomResult {
+  room?: Room;
+  errorMessage?: string;
 }
 
 export class RandomDuelProvider {
@@ -83,20 +135,32 @@ export class RandomDuelProvider {
         'RANDOM_DUEL_RECORD_MATCH_SCORES is enabled but database is unavailable',
       );
     }
+
     this.ctx.middleware(CanReconnectCheck, async (msg, _client, next) => {
       if (msg.room.randomType && this.getDisconnectedCount(msg.room) > 1) {
         return msg.no();
       }
       return next();
     });
+
     this.ctx.middleware(OnRoomJoinPlayer, async (event, client, next) => {
+      if (event.room.randomType) {
+        await this.setAbuseCount(client.ip, 0);
+      }
       await this.updateOpponentRelation(event.room, client);
       return next();
     });
+
+    this.ctx.middleware(OnRoomLeavePlayer, async (event, client, next) => {
+      await this.handlePlayerLeave(event, client);
+      return next();
+    });
+
     this.ctx.middleware(OnRoomFinalize, async (event, _client, next) => {
       await this.recordMatchResult(event.room);
       return next();
     });
+
     this.ctx.middleware(YGOProCtosChat, async (msg, client, next) => {
       if (!this.disableChat || !client.roomName) {
         return next();
@@ -108,6 +172,38 @@ export class RandomDuelProvider {
       await client.sendChat('#{chat_disabled}', ChatColor.BABYBLUE);
       return;
     });
+
+    this.ctx.middleware(YGOProCtosSurrender, async (_msg, client, next) => {
+      if (client.isInternal || !client.roomName) {
+        return next();
+      }
+      const room = this.roomManager.findByName(client.roomName);
+      if (!room?.randomType) {
+        return next();
+      }
+      if (
+        room.turnCount >= RANDOM_DUEL_EARLY_SURRENDER_TURN ||
+        (room.randomType === 'M' && this.recordMatchScoresEnabled) ||
+        (await this.isFleeFree(room.name, client.ip))
+      ) {
+        return next();
+      }
+      await client.sendChat('#{surrender_denied}', ChatColor.BABYBLUE);
+      return;
+    });
+
+    this.ctx.middleware(OnClientWaitTimeout, async (event, _client, next) => {
+      await this.handleWaitTimeout(event);
+      return next();
+    });
+
+    this.ctx.middleware(
+      OnClientBadwordViolation,
+      async (event, _client, next) => {
+        await this.handleBadwordViolation(event);
+        return next();
+      },
+    );
   }
 
   get defaultType() {
@@ -128,32 +224,46 @@ export class RandomDuelProvider {
     return undefined;
   }
 
-  async findOrCreateRandomRoom(type: string, playerIp: string) {
-    const found = await this.findRandomRoom(type, playerIp);
+  async findOrCreateRandomRoom(
+    type: string,
+    playerIp: string,
+  ): Promise<FindOrCreateRandomRoomResult> {
+    const joinState = await this.resolveJoinState(type, playerIp);
+    if (joinState.errorMessage) {
+      return { errorMessage: joinState.errorMessage };
+    }
+
+    const found = await this.findRandomRoom(
+      type,
+      playerIp,
+      joinState.deprecated,
+    );
     if (found) {
       const foundType = found.randomType || type || this.defaultType;
       found.randomType = foundType;
+      found.randomDuelDeprecated = joinState.deprecated;
       found.checkChatBadword = true;
       found.noHost = true;
       found.randomDuelMaxPlayer = this.resolveRandomDuelMaxPlayer(foundType);
       found.welcome = '#{random_duel_enter_room_waiting}';
       this.applyWelcomeType(found, foundType);
-      return found;
+      return { room: found };
     }
 
     const randomType = type || this.defaultType;
     const roomName = this.generateRandomRoomName(randomType);
     if (!roomName) {
-      return undefined;
+      return {};
     }
     const room = await this.roomManager.findOrCreateByName(roomName);
     room.randomType = randomType;
+    room.randomDuelDeprecated = joinState.deprecated;
     room.checkChatBadword = true;
     room.noHost = true;
     room.randomDuelMaxPlayer = this.resolveRandomDuelMaxPlayer(randomType);
     room.welcome = '#{random_duel_enter_room_new}';
     this.applyWelcomeType(room, randomType);
-    return room;
+    return { room };
   }
 
   private resolveBlankPassModes() {
@@ -189,7 +299,59 @@ export class RandomDuelProvider {
     return room.playingPlayers.filter((player) => !!player.disconnected).length;
   }
 
-  private async findRandomRoom(type: string, playerIp: string) {
+  private async resolveJoinState(
+    type: string,
+    playerIp: string,
+  ): Promise<RandomDuelJoinState> {
+    if (!playerIp) {
+      return { deprecated: false };
+    }
+    const discipline = await this.getDiscipline(playerIp);
+    const reasonsText = renderReasonText(discipline.reasons);
+    const remainText = formatRemainText(discipline.expireAt);
+    const deprecated = discipline.count > RANDOM_DUEL_DEPRECATED_COUNT;
+
+    if (discipline.count > RANDOM_DUEL_BANNED_COUNT) {
+      return {
+        deprecated,
+        errorMessage: `#{random_banned_part1}${reasonsText}#{random_banned_part2}${remainText}#{random_banned_part3}`,
+      };
+    }
+
+    if (
+      discipline.count > RANDOM_DUEL_DEPRECATED_COUNT &&
+      discipline.needTip &&
+      type !== 'T'
+    ) {
+      discipline.needTip = false;
+      await this.setDiscipline(playerIp, discipline);
+      return {
+        deprecated,
+        errorMessage: `#{random_deprecated_part1}${reasonsText}#{random_deprecated_part2}${remainText}#{random_deprecated_part3}`,
+      };
+    }
+
+    if (discipline.needTip) {
+      discipline.needTip = false;
+      await this.setDiscipline(playerIp, discipline);
+      return {
+        deprecated,
+        errorMessage: `#{random_warn_part1}${reasonsText}#{random_warn_part2}`,
+      };
+    }
+
+    if (discipline.count > RANDOM_DUEL_WARN_COUNT && !discipline.needTip) {
+      discipline.needTip = true;
+      await this.setDiscipline(playerIp, discipline);
+    }
+    return { deprecated };
+  }
+
+  private async findRandomRoom(
+    type: string,
+    playerIp: string,
+    playerDeprecated: boolean,
+  ) {
     for (const room of this.roomManager.allRooms()) {
       if (
         !room.randomType ||
@@ -200,6 +362,9 @@ export class RandomDuelProvider {
         continue;
       }
       if (!this.canMatchType(room.randomType, type)) {
+        continue;
+      }
+      if (type !== 'T' && !!room.randomDuelDeprecated !== !!playerDeprecated) {
         continue;
       }
       const maxPlayer =
@@ -250,6 +415,114 @@ export class RandomDuelProvider {
     room.welcome2 = '';
   }
 
+  private async handlePlayerLeave(event: OnRoomLeavePlayer, client: Client) {
+    const room = event.room;
+    if (
+      !room.randomType ||
+      client.isInternal ||
+      event.reason !== RoomLeavePlayerReason.Disconnect ||
+      event.bySystem ||
+      event.oldPos >= NetPlayerType.OBSERVER ||
+      room.duelStage === DuelStage.Begin ||
+      (await this.isFleeFree(room.name, client.ip))
+    ) {
+      return;
+    }
+
+    await this.punishPlayer(client, 'FLEE');
+
+    if (
+      this.recordMatchScoresEnabled &&
+      room.randomType === 'M' &&
+      !room.randomDuelScoreHandled
+    ) {
+      await this.recordFleeResult(room, client);
+      room.randomDuelScoreHandled = true;
+    }
+  }
+
+  private async handleWaitTimeout(event: OnClientWaitTimeout) {
+    if (!event.room.randomType || event.client.isInternal) {
+      return;
+    }
+    const reason: RandomDuelPunishReason =
+      event.type === 'ready' ? 'ZOMBIE' : 'AFK';
+    await this.punishPlayer(event.client, reason);
+  }
+
+  private async handleBadwordViolation(event: OnClientBadwordViolation) {
+    const room = event.room;
+    const client = event.client;
+    if (!room?.randomType || client.isInternal || !client.ip) {
+      return;
+    }
+
+    let abuseCount = await this.getAbuseCount(client.ip);
+    if (event.level >= 3) {
+      if (abuseCount > 0) {
+        await client.sendChat('#{banned_duel_tip}', ChatColor.RED);
+        await this.punishPlayer(client, 'ABUSE');
+        await this.punishPlayer(client, 'ABUSE', 3);
+        client.disconnect();
+        return;
+      }
+      abuseCount += 4;
+    } else if (event.level === 2) {
+      abuseCount += 3;
+    } else if (event.level === 1) {
+      abuseCount += 1;
+    } else {
+      return;
+    }
+
+    await this.setAbuseCount(client.ip, abuseCount);
+
+    if (abuseCount >= 2) {
+      await this.unwelcome(room, client);
+    }
+    if (abuseCount >= 5) {
+      await room.sendChat(`${client.name} #{chat_banned}`, ChatColor.RED);
+      await this.punishPlayer(client, 'ABUSE');
+      client.disconnect();
+    }
+  }
+
+  private async unwelcome(room: Room, badPlayer: Client) {
+    await Promise.all(
+      room.playingPlayers.map(async (player) => {
+        if (player === badPlayer) {
+          await player.sendChat(
+            '#{unwelcome_warn_part1}#{random_ban_reason_abuse}#{unwelcome_warn_part2}',
+            ChatColor.RED,
+          );
+          return;
+        }
+        if (player.pos >= NetPlayerType.OBSERVER || player.isInternal) {
+          return;
+        }
+        await this.setFleeFree(room.name, player.ip, true);
+        await player.sendChat(
+          '#{unwelcome_tip_part1}#{random_ban_reason_abuse}#{unwelcome_tip_part2}',
+          ChatColor.BABYBLUE,
+        );
+      }),
+    );
+  }
+
+  private async recordFleeResult(room: Room, loser: Client) {
+    const loserName = loser.name_vpass || loser.name;
+    if (loserName) {
+      await this.recordFlee(loserName);
+    }
+    const winner = room
+      .getOpponents(loser)
+      .find((player) => player.pos < NetPlayerType.OBSERVER);
+    const winnerName = winner?.name_vpass || winner?.name;
+    if (winnerName) {
+      await this.recordWin(winnerName);
+    }
+  }
+
   private async updateOpponentRelation(room: Room, client: Client) {
     if (!room.randomType || !client.ip) {
       return;
@@ -269,6 +542,9 @@ export class RandomDuelProvider {
   }
 
   private async setLastOpponent(ip: string, opponentIp: string) {
+    if (!ip) {
+      return;
+    }
     await this.ctx.aragami.set(
       RandomDuelOpponentCache,
       {
@@ -282,12 +558,154 @@ export class RandomDuelProvider {
     );
   }
 
+  private async punishPlayer(
+    client: Client,
+    reason: RandomDuelPunishReason,
+    countAdd = 1,
+  ) {
+    if (!client.ip) {
+      return;
+    }
+    const discipline = await this.getDiscipline(client.ip);
+    discipline.count += Math.max(0, countAdd);
+    if (!discipline.reasons.includes(reason)) {
+      discipline.reasons = [...discipline.reasons, reason].slice(-16);
+    }
+    discipline.needTip = true;
+    discipline.expireAt = Date.now() + RANDOM_DUEL_TTL;
+    await this.setDiscipline(client.ip, discipline);
+    this.logger.info(
+      {
+        name: client.name,
+        ip: client.ip,
+        reason,
+        countAdd,
+        count: discipline.count,
+      },
+      'Recorded random duel punishment',
+    );
+  }
+
+  private async getDiscipline(ip: string) {
+    const empty = {
+      count: 0,
+      reasons: [] as RandomDuelPunishReason[],
+      needTip: false,
+      abuseCount: 0,
+      expireAt: 0,
+    };
+    if (!ip) {
+      return empty;
+    }
+    const data = await this.ctx.aragami.get(RandomDuelDisciplineCache, ip);
+    const now = Date.now();
+    const expireAt = Math.max(0, data?.expireAt || 0);
+    if (!data || expireAt <= now) {
+      return empty;
+    }
+    return {
+      count: Math.max(0, data?.count || 0),
+      reasons: [...(data?.reasons || [])].filter((reason) =>
+        ['AFK', 'ABUSE', 'FLEE', 'ZOMBIE'].includes(reason),
+      ) as RandomDuelPunishReason[],
+      needTip: !!data?.needTip,
+      abuseCount: Math.max(0, data?.abuseCount || 0),
+      expireAt,
+    };
+  }
+
+  private async setDiscipline(
+    ip: string,
+    data: {
+      count: number;
+      reasons: RandomDuelPunishReason[];
+      needTip: boolean;
+      abuseCount: number;
+      expireAt: number;
+    },
+  ) {
+    if (!ip) {
+      return;
+    }
+    const now = Date.now();
+    const expireAt = Math.max(now + 1000, data.expireAt || now + RANDOM_DUEL_TTL);
+    const ttl = Math.max(1000, expireAt - now);
+    await this.ctx.aragami.set(
+      RandomDuelDisciplineCache,
+      {
+        ip,
+        count: Math.max(0, data.count || 0),
+        reasons: [...(data.reasons || [])].slice(-16),
+        needTip: !!data.needTip,
+        abuseCount: Math.max(0, data.abuseCount || 0),
+        expireAt,
+      },
+      {
+        key: ip,
+        ttl,
+      },
+    );
+  }
+
+  private async getAbuseCount(ip: string) {
+    const discipline = await this.getDiscipline(ip);
+    return discipline.abuseCount;
+  }
+
+  private async setAbuseCount(ip: string, abuseCount: number) {
+    if (!ip) {
+      return;
+    }
+    const discipline = await this.getDiscipline(ip);
+    if (
+      discipline.count <= 0 &&
+      discipline.reasons.length <= 0 &&
+      !discipline.needTip &&
+      abuseCount <= 0
+    ) {
+      return;
+    }
+    discipline.abuseCount = Math.max(0, abuseCount);
+    await this.setDiscipline(ip, discipline);
+  }
+
+  private async isFleeFree(roomName: string, ip: string) {
+    if (!roomName || !ip) {
+      return false;
+    }
+    const key = buildFleeFreeKey(roomName, ip);
+    const data = await this.ctx.aragami.get(RandomDuelFleeFreeCache, key);
+    return !!data?.enabled;
+  }
+
+  private async setFleeFree(roomName: string, ip: string, enabled: boolean) {
+    if (!roomName || !ip) {
+      return;
+    }
+    const key = buildFleeFreeKey(roomName, ip);
+    await this.ctx.aragami.set(
+      RandomDuelFleeFreeCache,
+      {
+        key,
+        enabled: !!enabled,
+      },
+      {
+        key,
+        ttl: RANDOM_DUEL_TTL,
+      },
+    );
+  }
+
   private get recordMatchScoresEnabled() {
     return this.recordMatchScoresConfigured && !!this.ctx.database;
   }
 
   private async recordMatchResult(room: Room) {
-    if (!this.recordMatchScoresEnabled || room.randomType !== 'M') {
+    if (
+      !this.recordMatchScoresEnabled ||
+      room.randomType !== 'M' ||
+      room.randomDuelScoreHandled
+    ) {
       return;
     }
     const duelPos0Player = room.getDuelPosPlayers(0)[0];
@@ -349,6 +767,22 @@ export class RandomDuelProvider {
       return;
     }
     score.lose();
+    await repo.save(score);
+  }
+
+  private async recordFlee(name: string) {
+    if (!name) {
+      return;
+    }
+    const repo = this.ctx.database?.getRepository(RandomDuelScore);
+    if (!repo) {
+      return;
+    }
+    const score = await this.getOrCreateScore(name);
+    if (!score) {
+      return;
+    }
+    score.flee();
     await repo.save(score);
   }
 }

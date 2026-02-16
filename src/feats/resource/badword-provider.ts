@@ -4,6 +4,7 @@ import { Client } from '../../client';
 import { Room, RoomManager } from '../../room';
 import { escapeRegExp } from '../../utility/escape-regexp';
 import { ValueContainer } from '../../utility/value-container';
+import { OnClientBadwordViolation } from '../random-duel-events';
 import { BaseResourceProvider } from './base-resource-provider';
 import { isObjectRecord } from './resource-util';
 import { BadwordsData, EMPTY_BADWORDS_DATA } from './types';
@@ -71,7 +72,21 @@ export class BadwordProvider extends BaseResourceProvider<BadwordsData> {
       const room = client.roomName
         ? this.roomManager.findByName(client.roomName)
         : undefined;
-      const filtered = await this.filterText(msg.msg, room, client);
+      const originalMessage = msg.msg;
+      const filtered = await this.filterText(originalMessage, room, client);
+
+      if (filtered.level >= 0) {
+        await this.ctx.dispatch(
+          new OnClientBadwordViolation(
+            client,
+            room,
+            originalMessage,
+            filtered.level,
+            filtered.message !== originalMessage ? filtered.message : undefined,
+          ),
+          client as any,
+        );
+      }
 
       if (filtered.blocked) {
         await client.sendChat('#{chat_warn_level2}', ChatColor.RED);

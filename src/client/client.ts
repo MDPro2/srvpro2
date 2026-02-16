@@ -213,6 +213,8 @@ export class Client {
   @ClientRoomField()
   roomName?: string;
   @ClientRoomField()
+  roompass = '';
+  @ClientRoomField()
   isHost = false;
   @ClientRoomField()
   pos = -1;

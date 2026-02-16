@@ -838,7 +838,9 @@ export class Reconnect {
         const matchCondition =
           room.isLooseReconnectRule ||
           player.ip === newClient.ip ||
-          (newClient.vpass && newClient.vpass === player.vpass);
+          (newClient.vpass &&
+            newClient.vpass === player.vpass &&
+            newClient.roompass === player.roompass);
 
         if (matchCondition) {
           return player;
