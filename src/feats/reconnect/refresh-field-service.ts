@@ -36,8 +36,7 @@ export class RefreshFieldService {
     await client.send(await this.requestField(room));
     await this.sendRefreshMessages(client, room);
 
-    const needResendRequest =
-      this.isReconnectingPlayerOperating(client, room);
+    const needResendRequest = this.isReconnectingPlayerOperating(client, room);
 
     if (needResendRequest) {
       const lastHint = this.findLastHintForClient(client, room);

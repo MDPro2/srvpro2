@@ -509,7 +509,10 @@ export class Reconnect {
       }),
     );
 
-    await this.refreshFieldService.sendReconnectDuelingMessages(newClient, room);
+    await this.refreshFieldService.sendReconnectDuelingMessages(
+      newClient,
+      room,
+    );
   }
 
   private importClientData(newClient: Client, oldClient: Client, room: Room) {

@@ -51,6 +51,15 @@ windbotBotlist: ./windbot/bots.json
 windbotSpawn: 0
 windbotEndpoint: http://127.0.0.1:2399
 windbotMyIp: 127.0.0.1
+enableChatgpt: 0
+chatgptEndpoint: https://api.openai.com
+chatgptToken: sk-xxxx
+chatgptModel: gpt-4o-mini
+chatgptSystemPrompt: 你是{{windbot}}，一名与{{player}}实时互动的游戏对手。玩家当前 locale 是
+  {{locale}}，你必须始终使用 {{language}}
+  回复（不要混用其他语言）。你的回复应简短、有趣、贴合当前情境，增强玩家沉浸感。避免冗长解释或重复内容，并且每次回复不能超过100个字。
+chatgptTokenLimit: 12000
+chatgptExtraOpts: {}
 enableReconnect: 1
 reconnectTimeout: 180000
 hidePlayerName: 0

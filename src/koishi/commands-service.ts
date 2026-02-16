@@ -34,7 +34,10 @@ export class CommandsService {
         if (!commandContext) {
           return;
         }
-        await this.ctx.dispatch(new YGOProCtosSurrender(), commandContext.client);
+        await this.ctx.dispatch(
+          new YGOProCtosSurrender(),
+          commandContext.client,
+        );
       });
 
     koishi.command('roomname', '').action(({ session }) => {

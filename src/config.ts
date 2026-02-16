@@ -119,6 +119,22 @@ export const defaultConfig = {
   WINDBOT_ENDPOINT: 'http://127.0.0.1:2399',
   // Public IP/host that windbot uses to connect back to this server.
   WINDBOT_MY_IP: '127.0.0.1',
+  // Enable chatgpt feature for AI-room chat replies.
+  // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
+  ENABLE_CHATGPT: '0',
+  // Chat completions API endpoint. Format: URL string.
+  CHATGPT_ENDPOINT: 'https://api.openai.com',
+  // Chat completions API token.
+  CHATGPT_TOKEN: 'sk-xxxx',
+  // Chat model.
+  CHATGPT_MODEL: 'gpt-4o-mini',
+  // Optional system prompt template. Supports {{player}} and {{windbot}} placeholders.
+  CHATGPT_SYSTEM_PROMPT:
+    '你是{{windbot}}，一名与{{player}}实时互动的游戏对手。玩家当前 locale 是 {{locale}}，你必须始终使用 {{language}} 回复（不要混用其他语言）。你的回复应简短、有趣、贴合当前情境，增强玩家沉浸感。避免冗长解释或重复内容，并且每次回复不能超过100个字。',
+  // Token limit used to trim stored conversation context.
+  CHATGPT_TOKEN_LIMIT: '12000',
+  // Extra request options for chat completions. Format: JSON object string.
+  CHATGPT_EXTRA_OPTS: '{}',
   // Enable reconnect feature.
   // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
   // Note: with default-true parsing, empty string is treated as true.

@@ -13,16 +13,18 @@ import { MenuManager } from './menu-manager';
 import { ClientKeyProvider } from './client-key-provider';
 import { HidePlayerNameProvider } from './hide-player-name-provider';
 import { CommandsService, KoishiContextService } from '../koishi';
+import { ChatgptService } from './chatgpt-service';
 
 export const FeatsModule = createAppContext<ContextState>()
   .provide(ClientKeyProvider)
   .provide(HidePlayerNameProvider)
   .provide(KoishiContextService)
-  .provide(CommandsService)
+  .provide(CommandsService) // some chat commands
   .provide(MenuManager)
   .provide(ClientVersionCheck)
   .provide(Welcome)
   .provide(PlayerStatusNotify)
+  .provide(ChatgptService) // AI-room chat replies
   .provide(RefreshFieldService)
   .provide(Reconnect)
   .provide(WaitForPlayerProvider) // chat refresh
