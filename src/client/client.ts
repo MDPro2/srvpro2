@@ -117,20 +117,27 @@ export class Client {
 
   private sendQueue = new PQueue({ concurrency: 1 });
 
-  async send(data: YGOProStocBase) {
-    if (this.disconnected) {
-      return;
+  async send(data: YGOProStocBase, noDispatch = false) {
+    if (!noDispatch) {
+      const dispatched = await this.ctx.dispatch(data, this);
+      if (!data) {
+        return;
+      }
+      data = dispatched!;
     }
+    const logMsg = data instanceof YGOProStocGameMsg ? data.msg : data;
+    this.logger.debug(
+      {
+        msgName: logMsg?.constructor.name,
+        client: this.name || this.loggingIp(),
+        payload: JSON.stringify(logMsg),
+      },
+      'Sending message to client',
+    );
     return this.sendQueue.add(async () => {
-      const logMsg = data instanceof YGOProStocGameMsg ? data.msg : data;
-      this.logger.debug(
-        {
-          msgName: logMsg?.constructor.name,
-          client: this.name || this.loggingIp(),
-          payload: JSON.stringify(logMsg),
-        },
-        'Sending message to client',
-      );
+      if (this.disconnected) {
+        return;
+      }
       try {
         await this._send(Buffer.from(data.toFullPayload()));
       } catch (e) {

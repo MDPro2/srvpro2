@@ -25,6 +25,7 @@ import {
 import { CanReconnectCheck } from '../reconnect';
 import { WaitForPlayerProvider } from '../wait-for-player-provider';
 import { ClientKeyProvider } from '../client-key-provider';
+import { HidePlayerNameProvider } from '../hide-player-name-provider';
 import { RandomDuelScore } from './score.entity';
 import {
   formatRemainText,
@@ -96,6 +97,7 @@ export class RandomDuelProvider {
   private roomManager = this.ctx.get(() => RoomManager);
   private waitForPlayerProvider = this.ctx.get(() => WaitForPlayerProvider);
   private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
+  private hidePlayerNameProvider = this.ctx.get(() => HidePlayerNameProvider);
 
   enabled = this.ctx.config.getBoolean('ENABLE_RANDOM_DUEL');
   noRematchCheck = this.ctx.config.getBoolean('RANDOM_DUEL_NO_REMATCH_CHECK');
@@ -239,6 +241,7 @@ export class RandomDuelProvider {
     if (found) {
       const foundType = found.randomType || type || this.defaultType;
       found.randomType = foundType;
+      found.hidePlayerNames = this.hidePlayerNameProvider.enabled;
       found.randomDuelDeprecated = joinState.deprecated;
       found.checkChatBadword = true;
       found.noHost = true;
@@ -255,6 +258,7 @@ export class RandomDuelProvider {
     }
     const room = await this.roomManager.findOrCreateByName(roomName);
     room.randomType = randomType;
+    room.hidePlayerNames = this.hidePlayerNameProvider.enabled;
     room.randomDuelDeprecated = joinState.deprecated;
     room.checkChatBadword = true;
     room.noHost = true;

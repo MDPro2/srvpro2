@@ -53,6 +53,7 @@ windbotEndpoint: http://127.0.0.1:2399
 windbotMyIp: 127.0.0.1
 enableReconnect: 1
 reconnectTimeout: 180000
+hidePlayerName: 0
 enableRandomDuel: 1
 randomDuelBlankPassModes:
   - S

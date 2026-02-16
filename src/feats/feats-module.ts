@@ -11,9 +11,11 @@ import { WaitForPlayerProvider } from './wait-for-player-provider';
 import { ResourceModule } from './resource';
 import { MenuManager } from './menu-manager';
 import { ClientKeyProvider } from './client-key-provider';
+import { HidePlayerNameProvider } from './hide-player-name-provider';
 
 export const FeatsModule = createAppContext<ContextState>()
   .provide(ClientKeyProvider)
+  .provide(HidePlayerNameProvider)
   .provide(MenuManager)
   .provide(ClientVersionCheck)
   .provide(Welcome)

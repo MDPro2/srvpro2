@@ -125,6 +125,10 @@ export const defaultConfig = {
   ENABLE_RECONNECT: '1',
   // Reconnect timeout after disconnect. Format: integer string in milliseconds (ms).
   RECONNECT_TIMEOUT: '180000',
+  // Hide player name mode in random duel rooms.
+  // Format: integer string.
+  // 0 = disabled, 1 = hide only at Begin stage, 2 = always hide.
+  HIDE_PLAYER_NAME: '0',
   // Enable random duel feature.
   // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
   ENABLE_RANDOM_DUEL: '1',
