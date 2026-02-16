@@ -1,3 +1,10 @@
+FROM debian:trixie-slim as ygopro-loader
+RUN apt update && apt -y install wget git && \
+  mkdir -p /resources/ygopro /resources/windbot && \
+  git clone --depth=1 https://code.moenext.com/nanahira/ygopro-scripts /resources/ygopro/script && \
+  wget -O /resources/ygopro/cards.cdb https://cdntx.moecube.com/ygopro-database/zh-CN/cards.cdb && \
+  wget -O /resources/windbot/bots.json 'https://code.moenext.com/nanahira/windbot/-/raw/master/bots.json?inline=false'
+
 FROM node:lts-trixie-slim as base
 LABEL Author="Nanahira <nanahira@momobako.com>"
 
@@ -14,6 +21,9 @@ FROM base
 ENV NODE_ENV production
 RUN npm ci && npm install --no-save pg-native && npm cache clean --force
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=ygopro-loader /resources/ygopro ./ygopro
+COPY --from=ygopro-loader /resources/windbot ./windbot
+COPY ./resource ./resource
 
 ENV NODE_PG_FORCE_NATIVE=true
 CMD [ "npm", "start" ]
