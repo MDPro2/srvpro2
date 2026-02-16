@@ -20,7 +20,7 @@ export class RandomDuelJoinHandler {
       }
       const result = await this.randomDuelProvider.findOrCreateRandomRoom(
         type,
-        client.ip,
+        client,
       );
       if (result.errorMessage) {
         return client.die(result.errorMessage, ChatColor.RED);

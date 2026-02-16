@@ -9,15 +9,19 @@ import { SideTimeout } from './side-timeout';
 import { RandomDuelModule } from './random-duel';
 import { WaitForPlayerProvider } from './wait-for-player-provider';
 import { ResourceModule } from './resource';
+import { MenuManager } from './menu-manager';
+import { ClientKeyProvider } from './client-key-provider';
 
 export const FeatsModule = createAppContext<ContextState>()
-  .use(ResourceModule)
+  .provide(ClientKeyProvider)
+  .provide(MenuManager)
   .provide(ClientVersionCheck)
   .provide(Welcome)
   .provide(PlayerStatusNotify)
   .provide(Reconnect)
-  .provide(WaitForPlayerProvider)
+  .provide(WaitForPlayerProvider) // chat refresh
   .provide(SideTimeout)
-  .use(RandomDuelModule)
+  .use(ResourceModule) // chat bad words
+  .use(RandomDuelModule) // chat random duel block
   .use(WindbotModule)
   .define();

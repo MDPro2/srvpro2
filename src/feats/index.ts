@@ -1,4 +1,5 @@
 export * from './client-version-check';
+export * from './client-key-provider';
 export * from './menu-manager';
 export * from './welcome';
 export * from './random-duel';

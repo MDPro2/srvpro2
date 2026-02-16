@@ -29,6 +29,7 @@ import { getSpecificFields } from '../../utility/metadata';
 import { YGOProCtosDisconnect } from '../../utility/ygopro-ctos-disconnect';
 import { isUpdateDeckPayloadEqual } from '../../utility/deck-compare';
 import { CanReconnectCheck } from './can-reconnect-check';
+import { ClientKeyProvider } from '../client-key-provider';
 
 interface DisconnectInfo {
   key: string;
@@ -54,13 +55,13 @@ declare module '../../client' {
 declare module '../../room' {
   interface Room {
     noReconnect?: boolean;
-    isLooseReconnectRule?: boolean;
   }
 }
 
 export class Reconnect {
   private disconnectList = new Map<string, DisconnectInfo>();
   private reconnectTimeout = this.ctx.config.getInt('RECONNECT_TIMEOUT'); // 超时时间，单位：毫秒（默认 180000ms = 3分钟）
+  private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
 
   constructor(private ctx: Context) {
     // 检查是否启用断线重连（默认启用）
@@ -142,7 +143,7 @@ export class Reconnect {
   }
 
   private async registerDisconnect(client: Client, room: Room) {
-    const key = this.getAuthorizeKey(client, room);
+    const key = this.clientKeyProvider.getClientKey(client);
 
     // 通知房间
     await room.sendChat(
@@ -764,22 +765,6 @@ export class Reconnect {
     return undefined;
   }
 
-  private getAuthorizeKey(client: Client, room?: Room): string {
-    // 参考 srvpro 逻辑
-    // 如果有 vpass 且不是宽松匹配模式，优先用 name_vpass
-    if (!room?.isLooseReconnectRule && client.vpass) {
-      return client.name_vpass;
-    }
-
-    // 宽松匹配模式或内部客户端
-    if (room?.isLooseReconnectRule) {
-      return client.name || client.ip || 'undefined';
-    }
-
-    // 默认：ip:name
-    return `${client.ip}:${client.name}`;
-  }
-
   private getClientRoom(client: Client): Room | undefined {
     if (!client.roomName) {
       return undefined;
@@ -836,11 +821,8 @@ export class Reconnect {
 
         // 宽松模式或匹配条件
         const matchCondition =
-          room.isLooseReconnectRule ||
-          player.ip === newClient.ip ||
-          (newClient.vpass &&
-            newClient.vpass === player.vpass &&
-            newClient.roompass === player.roompass);
+          this.clientKeyProvider.getClientKey(player) ===
+          this.clientKeyProvider.getClientKey(newClient);
 
         if (matchCondition) {
           return player;
@@ -865,7 +847,7 @@ export class Reconnect {
         this.clearDisconnectInfo(disconnectInfo);
         continue;
       }
-      const key = this.getAuthorizeKey(newClient, room);
+      const key = this.clientKeyProvider.getClientKey(newClient);
       if (key !== disconnectInfo.key) {
         continue;
       }

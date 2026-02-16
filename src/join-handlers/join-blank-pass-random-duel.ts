@@ -13,7 +13,7 @@ export class JoinBlankPassRandomDuel {
       }
       const result = await this.randomDuelProvider.findOrCreateRandomRoom(
         '',
-        client.ip,
+        client,
       );
       if (result.errorMessage) {
         return client.die(result.errorMessage, ChatColor.RED);

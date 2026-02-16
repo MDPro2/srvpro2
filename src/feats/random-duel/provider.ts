@@ -24,6 +24,7 @@ import {
 } from '../random-duel-events';
 import { CanReconnectCheck } from '../reconnect';
 import { WaitForPlayerProvider } from '../wait-for-player-provider';
+import { ClientKeyProvider } from '../client-key-provider';
 import { RandomDuelScore } from './score.entity';
 import {
   buildFleeFreeKey,
@@ -56,14 +57,14 @@ const BUILTIN_RANDOM_TYPES = [
 
 class RandomDuelOpponentCache {
   @CacheKey()
-  ip!: string;
+  clientKey!: string;
 
-  opponentIp = '';
+  opponentKey = '';
 }
 
 class RandomDuelDisciplineCache {
   @CacheKey()
-  ip!: string;
+  clientKey!: string;
 
   count = 0;
   reasons: RandomDuelPunishReason[] = [];
@@ -102,6 +103,7 @@ export class RandomDuelProvider {
   private logger = this.ctx.createLogger(this.constructor.name);
   private roomManager = this.ctx.get(() => RoomManager);
   private waitForPlayerProvider = this.ctx.get(() => WaitForPlayerProvider);
+  private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
 
   enabled = this.ctx.config.getBoolean('ENABLE_RANDOM_DUEL');
   noRematchCheck = this.ctx.config.getBoolean('RANDOM_DUEL_NO_REMATCH_CHECK');
@@ -145,7 +147,7 @@ export class RandomDuelProvider {
 
     this.ctx.middleware(OnRoomJoinPlayer, async (event, client, next) => {
       if (event.room.randomType) {
-        await this.setAbuseCount(client.ip, 0);
+        await this.setAbuseCount(this.getClientKey(client), 0);
       }
       await this.updateOpponentRelation(event.room, client);
       return next();
@@ -184,7 +186,7 @@ export class RandomDuelProvider {
       if (
         room.turnCount >= RANDOM_DUEL_EARLY_SURRENDER_TURN ||
         (room.randomType === 'M' && this.recordMatchScoresEnabled) ||
-        (await this.isFleeFree(room.name, client.ip))
+        (await this.isFleeFree(room.name, this.getClientKey(client)))
       ) {
         return next();
       }
@@ -226,16 +228,17 @@ export class RandomDuelProvider {
 
   async findOrCreateRandomRoom(
     type: string,
-    playerIp: string,
+    client: Client,
   ): Promise<FindOrCreateRandomRoomResult> {
-    const joinState = await this.resolveJoinState(type, playerIp);
+    const playerKey = this.getClientKey(client);
+    const joinState = await this.resolveJoinState(type, playerKey);
     if (joinState.errorMessage) {
       return { errorMessage: joinState.errorMessage };
     }
 
     const found = await this.findRandomRoom(
       type,
-      playerIp,
+      playerKey,
       joinState.deprecated,
     );
     if (found) {
@@ -301,12 +304,12 @@ export class RandomDuelProvider {
 
   private async resolveJoinState(
     type: string,
-    playerIp: string,
+    playerKey: string,
   ): Promise<RandomDuelJoinState> {
-    if (!playerIp) {
+    if (!playerKey) {
       return { deprecated: false };
     }
-    const discipline = await this.getDiscipline(playerIp);
+    const discipline = await this.getDiscipline(playerKey);
     const reasonsText = renderReasonText(discipline.reasons);
     const remainText = formatRemainText(discipline.expireAt);
     const deprecated = discipline.count > RANDOM_DUEL_DEPRECATED_COUNT;
@@ -324,7 +327,7 @@ export class RandomDuelProvider {
       type !== 'T'
     ) {
       discipline.needTip = false;
-      await this.setDiscipline(playerIp, discipline);
+      await this.setDiscipline(playerKey, discipline);
       return {
         deprecated,
         errorMessage: `#{random_deprecated_part1}${reasonsText}#{random_deprecated_part2}${remainText}#{random_deprecated_part3}`,
@@ -333,7 +336,7 @@ export class RandomDuelProvider {
 
     if (discipline.needTip) {
       discipline.needTip = false;
-      await this.setDiscipline(playerIp, discipline);
+      await this.setDiscipline(playerKey, discipline);
       return {
         deprecated,
         errorMessage: `#{random_warn_part1}${reasonsText}#{random_warn_part2}`,
@@ -342,14 +345,14 @@ export class RandomDuelProvider {
 
     if (discipline.count > RANDOM_DUEL_WARN_COUNT && !discipline.needTip) {
       discipline.needTip = true;
-      await this.setDiscipline(playerIp, discipline);
+      await this.setDiscipline(playerKey, discipline);
     }
     return { deprecated };
   }
 
   private async findRandomRoom(
     type: string,
-    playerIp: string,
+    playerKey: string,
     playerDeprecated: boolean,
   ) {
     for (const room of this.roomManager.allRooms()) {
@@ -376,9 +379,10 @@ export class RandomDuelProvider {
       }
       if (!this.noRematchCheck) {
         const host = room.playingPlayers.find((p) => p.isHost);
-        if (host?.ip) {
-          const lastOpponentIp = await this.getLastOpponent(playerIp);
-          if (lastOpponentIp && lastOpponentIp === host.ip) {
+        if (host) {
+          const hostKey = this.getClientKey(host);
+          const lastOpponentKey = await this.getLastOpponent(playerKey);
+          if (lastOpponentKey && lastOpponentKey === hostKey) {
             continue;
           }
         }
@@ -424,7 +428,7 @@ export class RandomDuelProvider {
       event.bySystem ||
       event.oldPos >= NetPlayerType.OBSERVER ||
       room.duelStage === DuelStage.Begin ||
-      (await this.isFleeFree(room.name, client.ip))
+      (await this.isFleeFree(room.name, this.getClientKey(client)))
     ) {
       return;
     }
@@ -453,11 +457,12 @@ export class RandomDuelProvider {
   private async handleBadwordViolation(event: OnClientBadwordViolation) {
     const room = event.room;
     const client = event.client;
-    if (!room?.randomType || client.isInternal || !client.ip) {
+    const clientKey = this.getClientKey(client);
+    if (!room?.randomType || client.isInternal || !clientKey) {
       return;
     }
 
-    let abuseCount = await this.getAbuseCount(client.ip);
+    let abuseCount = await this.getAbuseCount(clientKey);
     if (event.level >= 3) {
       if (abuseCount > 0) {
         await client.sendChat('#{banned_duel_tip}', ChatColor.RED);
@@ -475,7 +480,7 @@ export class RandomDuelProvider {
       return;
     }
 
-    await this.setAbuseCount(client.ip, abuseCount);
+    await this.setAbuseCount(clientKey, abuseCount);
 
     if (abuseCount >= 2) {
       await this.unwelcome(room, client);
@@ -500,7 +505,7 @@ export class RandomDuelProvider {
         if (player.pos >= NetPlayerType.OBSERVER || player.isInternal) {
           return;
         }
-        await this.setFleeFree(room.name, player.ip, true);
+        await this.setFleeFree(room.name, this.getClientKey(player), true);
         await player.sendChat(
           '#{unwelcome_tip_part1}#{random_ban_reason_abuse}#{unwelcome_tip_part2}',
           ChatColor.BABYBLUE,
@@ -510,49 +515,57 @@ export class RandomDuelProvider {
   }
 
   private async recordFleeResult(room: Room, loser: Client) {
-    const loserName = loser.name_vpass || loser.name;
+    const loserName = this.getClientKey(loser);
     if (loserName) {
       await this.recordFlee(loserName);
     }
     const winner = room
       .getOpponents(loser)
       .find((player) => player.pos < NetPlayerType.OBSERVER);
-    const winnerName = winner?.name_vpass || winner?.name;
+    const winnerName = winner ? this.getClientKey(winner) : '';
     if (winnerName) {
       await this.recordWin(winnerName);
     }
   }
 
   private async updateOpponentRelation(room: Room, client: Client) {
-    if (!room.randomType || !client.ip) {
+    if (!room.randomType) {
+      return;
+    }
+    const clientKey = this.getClientKey(client);
+    if (!clientKey) {
       return;
     }
     const host = room.playingPlayers.find((player) => player.isHost);
-    if (host && host !== client && host.ip) {
-      await this.setLastOpponent(host.ip, client.ip);
-      await this.setLastOpponent(client.ip, host.ip);
+    if (host && host !== client) {
+      const hostKey = this.getClientKey(host);
+      if (!hostKey) {
+        return;
+      }
+      await this.setLastOpponent(hostKey, clientKey);
+      await this.setLastOpponent(clientKey, hostKey);
       return;
     }
-    await this.setLastOpponent(client.ip, '');
+    await this.setLastOpponent(clientKey, '');
   }
 
-  private async getLastOpponent(ip: string) {
-    const data = await this.ctx.aragami.get(RandomDuelOpponentCache, ip);
-    return data?.opponentIp || '';
+  private async getLastOpponent(clientKey: string) {
+    const data = await this.ctx.aragami.get(RandomDuelOpponentCache, clientKey);
+    return data?.opponentKey || '';
   }
 
-  private async setLastOpponent(ip: string, opponentIp: string) {
-    if (!ip) {
+  private async setLastOpponent(clientKey: string, opponentKey: string) {
+    if (!clientKey) {
       return;
     }
     await this.ctx.aragami.set(
       RandomDuelOpponentCache,
       {
-        ip,
-        opponentIp,
+        clientKey,
+        opponentKey,
       },
       {
-        key: ip,
+        key: clientKey,
         ttl: RANDOM_DUEL_TTL,
       },
     );
@@ -563,21 +576,22 @@ export class RandomDuelProvider {
     reason: RandomDuelPunishReason,
     countAdd = 1,
   ) {
-    if (!client.ip) {
+    const clientKey = this.getClientKey(client);
+    if (!clientKey) {
       return;
     }
-    const discipline = await this.getDiscipline(client.ip);
+    const discipline = await this.getDiscipline(clientKey);
     discipline.count += Math.max(0, countAdd);
     if (!discipline.reasons.includes(reason)) {
       discipline.reasons = [...discipline.reasons, reason].slice(-16);
     }
     discipline.needTip = true;
     discipline.expireAt = Date.now() + RANDOM_DUEL_TTL;
-    await this.setDiscipline(client.ip, discipline);
+    await this.setDiscipline(clientKey, discipline);
     this.logger.info(
       {
         name: client.name,
-        ip: client.ip,
+        clientKey,
         reason,
         countAdd,
         count: discipline.count,
@@ -586,7 +600,7 @@ export class RandomDuelProvider {
     );
   }
 
-  private async getDiscipline(ip: string) {
+  private async getDiscipline(clientKey: string) {
     const empty = {
       count: 0,
       reasons: [] as RandomDuelPunishReason[],
@@ -594,10 +608,10 @@ export class RandomDuelProvider {
       abuseCount: 0,
       expireAt: 0,
     };
-    if (!ip) {
+    if (!clientKey) {
       return empty;
     }
-    const data = await this.ctx.aragami.get(RandomDuelDisciplineCache, ip);
+    const data = await this.ctx.aragami.get(RandomDuelDisciplineCache, clientKey);
     const now = Date.now();
     const expireAt = Math.max(0, data?.expireAt || 0);
     if (!data || expireAt <= now) {
@@ -615,7 +629,7 @@ export class RandomDuelProvider {
   }
 
   private async setDiscipline(
-    ip: string,
+    clientKey: string,
     data: {
       count: number;
       reasons: RandomDuelPunishReason[];
@@ -624,7 +638,7 @@ export class RandomDuelProvider {
       expireAt: number;
     },
   ) {
-    if (!ip) {
+    if (!clientKey) {
       return;
     }
     const now = Date.now();
@@ -633,7 +647,7 @@ export class RandomDuelProvider {
     await this.ctx.aragami.set(
       RandomDuelDisciplineCache,
       {
-        ip,
+        clientKey,
         count: Math.max(0, data.count || 0),
         reasons: [...(data.reasons || [])].slice(-16),
         needTip: !!data.needTip,
@@ -641,22 +655,22 @@ export class RandomDuelProvider {
         expireAt,
       },
       {
-        key: ip,
+        key: clientKey,
         ttl,
       },
     );
   }
 
-  private async getAbuseCount(ip: string) {
-    const discipline = await this.getDiscipline(ip);
+  private async getAbuseCount(clientKey: string) {
+    const discipline = await this.getDiscipline(clientKey);
     return discipline.abuseCount;
   }
 
-  private async setAbuseCount(ip: string, abuseCount: number) {
-    if (!ip) {
+  private async setAbuseCount(clientKey: string, abuseCount: number) {
+    if (!clientKey) {
       return;
     }
-    const discipline = await this.getDiscipline(ip);
+    const discipline = await this.getDiscipline(clientKey);
     if (
       discipline.count <= 0 &&
       discipline.reasons.length <= 0 &&
@@ -666,23 +680,27 @@ export class RandomDuelProvider {
       return;
     }
     discipline.abuseCount = Math.max(0, abuseCount);
-    await this.setDiscipline(ip, discipline);
+    await this.setDiscipline(clientKey, discipline);
   }
 
-  private async isFleeFree(roomName: string, ip: string) {
-    if (!roomName || !ip) {
+  private async isFleeFree(roomName: string, clientKey: string) {
+    if (!roomName || !clientKey) {
       return false;
     }
-    const key = buildFleeFreeKey(roomName, ip);
+    const key = buildFleeFreeKey(roomName, clientKey);
     const data = await this.ctx.aragami.get(RandomDuelFleeFreeCache, key);
     return !!data?.enabled;
   }
 
-  private async setFleeFree(roomName: string, ip: string, enabled: boolean) {
-    if (!roomName || !ip) {
+  private async setFleeFree(
+    roomName: string,
+    clientKey: string,
+    enabled: boolean,
+  ) {
+    if (!roomName || !clientKey) {
       return;
     }
-    const key = buildFleeFreeKey(roomName, ip);
+    const key = buildFleeFreeKey(roomName, clientKey);
     await this.ctx.aragami.set(
       RandomDuelFleeFreeCache,
       {
@@ -718,15 +736,19 @@ export class RandomDuelProvider {
       return;
     }
     if (score0 > score1) {
-      await this.recordWin(duelPos0Player.name_vpass || duelPos0Player.name);
-      await this.recordLose(duelPos1Player.name_vpass || duelPos1Player.name);
+      await this.recordWin(this.getClientKey(duelPos0Player));
+      await this.recordLose(this.getClientKey(duelPos1Player));
       return;
     }
-    await this.recordWin(duelPos1Player.name_vpass || duelPos1Player.name);
-    await this.recordLose(duelPos0Player.name_vpass || duelPos0Player.name);
+    await this.recordWin(this.getClientKey(duelPos1Player));
+    await this.recordLose(this.getClientKey(duelPos0Player));
   }
 
-  private async getOrCreateScore(name: string) {
+  private getClientKey(client: Client) {
+    return this.clientKeyProvider.getClientKey(client);
+  }
+
+  async getOrCreateScore(name: string) {
     const repo = this.ctx.database?.getRepository(RandomDuelScore);
     if (!repo) {
       return undefined;
