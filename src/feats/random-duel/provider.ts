@@ -27,7 +27,6 @@ import { WaitForPlayerProvider } from '../wait-for-player-provider';
 import { ClientKeyProvider } from '../client-key-provider';
 import { RandomDuelScore } from './score.entity';
 import {
-  buildFleeFreeKey,
   formatRemainText,
   RandomDuelPunishReason,
   renderReasonText,
@@ -71,13 +70,6 @@ class RandomDuelDisciplineCache {
   needTip = false;
   abuseCount = 0;
   expireAt = 0;
-}
-
-class RandomDuelFleeFreeCache {
-  @CacheKey()
-  key!: string;
-
-  enabled = false;
 }
 
 declare module '../../room' {
@@ -150,6 +142,9 @@ export class RandomDuelProvider {
         await this.setAbuseCount(this.getClientKey(client), 0);
       }
       await this.updateOpponentRelation(event.room, client);
+      if (event.room.randomType === 'M') {
+        await this.sendMatchScoreTips(event.room, client);
+      }
       return next();
     });
 
@@ -186,7 +181,7 @@ export class RandomDuelProvider {
       if (
         room.turnCount >= RANDOM_DUEL_EARLY_SURRENDER_TURN ||
         (room.randomType === 'M' && this.recordMatchScoresEnabled) ||
-        (await this.isFleeFree(room.name, this.getClientKey(client)))
+        client.fleeFree
       ) {
         return next();
       }
@@ -428,7 +423,7 @@ export class RandomDuelProvider {
       event.bySystem ||
       event.oldPos >= NetPlayerType.OBSERVER ||
       room.duelStage === DuelStage.Begin ||
-      (await this.isFleeFree(room.name, this.getClientKey(client)))
+      client.fleeFree
     ) {
       return;
     }
@@ -505,7 +500,7 @@ export class RandomDuelProvider {
         if (player.pos >= NetPlayerType.OBSERVER || player.isInternal) {
           return;
         }
-        await this.setFleeFree(room.name, this.getClientKey(player), true);
+        player.fleeFree = true;
         await player.sendChat(
           '#{unwelcome_tip_part1}#{random_ban_reason_abuse}#{unwelcome_tip_part2}',
           ChatColor.BABYBLUE,
@@ -683,35 +678,61 @@ export class RandomDuelProvider {
     await this.setDiscipline(clientKey, discipline);
   }
 
-  private async isFleeFree(roomName: string, clientKey: string) {
-    if (!roomName || !clientKey) {
-      return false;
-    }
-    const key = buildFleeFreeKey(roomName, clientKey);
-    const data = await this.ctx.aragami.get(RandomDuelFleeFreeCache, key);
-    return !!data?.enabled;
-  }
-
-  private async setFleeFree(
-    roomName: string,
-    clientKey: string,
-    enabled: boolean,
-  ) {
-    if (!roomName || !clientKey) {
+  private async sendMatchScoreTips(room: Room, client: Client) {
+    if (!this.recordMatchScoresEnabled) {
       return;
     }
-    const key = buildFleeFreeKey(roomName, clientKey);
-    await this.ctx.aragami.set(
-      RandomDuelFleeFreeCache,
-      {
-        key,
-        enabled: !!enabled,
-      },
-      {
-        key,
-        ttl: RANDOM_DUEL_TTL,
-      },
+    const players = room.playingPlayers.filter(
+      (player) => player.pos < NetPlayerType.OBSERVER,
     );
+    if (!players.length) {
+      return;
+    }
+
+    const clientScoreText = await this.getScoreDisplay(
+      this.getClientKey(client),
+      client.name,
+    );
+    for (const player of players) {
+      if (clientScoreText) {
+        await player.sendChat(clientScoreText, ChatColor.GREEN);
+      }
+      if (player === client) {
+        continue;
+      }
+      const playerScoreText = await this.getScoreDisplay(
+        this.getClientKey(player),
+        player.name,
+      );
+      if (playerScoreText) {
+        await client.sendChat(playerScoreText, ChatColor.GREEN);
+      }
+    }
+  }
+
+  private async getScoreDisplay(name: string, displayName: string) {
+    const repo = this.ctx.database?.getRepository(RandomDuelScore);
+    if (!repo || !name) {
+      return '';
+    }
+    const score = await repo.findOneBy({ name });
+    if (!score) {
+      return `${displayName} #{random_score_blank}`;
+    }
+
+    const total = score.winCount + score.loseCount;
+    if (score.winCount < 2 && total < 3) {
+      return `${displayName} #{random_score_not_enough}`;
+    }
+
+    const safeTotal = total > 0 ? total : 1;
+    const winRate = Math.ceil((score.winCount / safeTotal) * 100);
+    const fleeRate = Math.ceil((score.fleeCount / safeTotal) * 100);
+
+    if (score.winCombo >= 2) {
+      return `#{random_score_part1}${displayName} #{random_score_part2} ${winRate}#{random_score_part3} ${fleeRate}#{random_score_part4_combo}${score.winCombo}#{random_score_part5_combo}`;
+    }
+    return `#{random_score_part1}${displayName} #{random_score_part2} ${winRate}#{random_score_part3} ${fleeRate}#{random_score_part4}`;
   }
 
   private get recordMatchScoresEnabled() {

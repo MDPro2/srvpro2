@@ -36,6 +36,3 @@ export const formatRemainText = (expireAt: number) => {
   }
   return `${remainMinutes}m`;
 };
-
-export const buildFleeFreeKey = (roomName: string, ip: string) =>
-  `${roomName}:${ip}`;

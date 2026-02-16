@@ -222,6 +222,7 @@ export class Client {
   deck?: YGOProDeck;
   @ClientRoomField()
   startDeck?: YGOProDeck;
+  fleeFree = false;
 
   async sendTypeChange() {
     return this.send(
