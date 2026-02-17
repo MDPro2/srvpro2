@@ -888,8 +888,10 @@ export class Room {
       // Check if all players have submitted their decks
       const allReady = this.playingPlayers.every((p) => p.deck);
       if (allReady) {
+        const prevWinPos =
+          this.duelRecords[this.duelRecords.length - 1]?.winPosition;
         return this.startGame(
-          this.duelRecords[this.duelRecords.length - 1]?.winPosition,
+          prevWinPos == null ? undefined : ((1 - prevWinPos) as 0 | 1),
         );
       }
     }
