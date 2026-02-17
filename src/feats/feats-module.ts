@@ -16,7 +16,7 @@ import { CommandsService, KoishiContextService } from '../koishi';
 import { ChatgptService } from './chatgpt-service';
 import { CloudReplayService } from './cloud-replay';
 import { LpLowHintService } from './lp-low-hint-service';
-import { LockDeckService } from './lock-deck-service';
+import { LockDeckService } from './lock-deck';
 import { BlockReplay } from './block-replay';
 
 export const FeatsModule = createAppContext<ContextState>()

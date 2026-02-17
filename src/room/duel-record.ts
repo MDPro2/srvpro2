@@ -23,6 +23,26 @@ export class DuelRecord {
   responses: Buffer[] = [];
   messages: YGOProMsgBase[] = [];
 
+  toSwappedPlayers() {
+    if (!this.isSwapped) { 
+      return [...this.players];
+    }
+    const swappedPlayers = [...this.players];
+    const isTag = swappedPlayers.length === 4;
+    const swapElements = (a: number, b: number) => {
+      const temp = swappedPlayers[a];
+      swappedPlayers[a] = swappedPlayers[b];
+      swappedPlayers[b] = temp;
+    };
+    if (isTag) {
+      swapElements(0, 2);
+      swapElements(1, 3);
+    } else {
+      swapElements(0, 1);
+    }
+    return swappedPlayers;
+  }
+
   private toReplayDeck(deck: YGOProDeck | null | undefined) {
     if (!deck) {
       return null;
@@ -50,20 +70,7 @@ export class DuelRecord {
     // Set start_time (stored in hash field) as Unix timestamp in seconds
     header.hash = Math.floor(this.startTime.getTime() / 1000);
 
-    const players = [...this.players];
-    if (this.isSwapped) {
-      const swapElements = (a: number, b: number) => {
-        const temp = players[a];
-        players[a] = players[b];
-        players[b] = temp;
-      };
-      if (isTag) {
-        swapElements(0, 2);
-        swapElements(1, 3);
-      } else {
-        swapElements(0, 1);
-      }
-    }
+    const players = this.toSwappedPlayers();
 
     // Build YGOProYrp object
     // Note: players array is already swapped

@@ -1,7 +1,7 @@
 import YGOProDeck from 'ygopro-deck-encode';
-import { Client } from '../client';
-import { Room } from '../room';
-import { ValueContainer } from '../utility/value-container';
+import { Client } from '../../client';
+import { Room } from '../../room';
+import { ValueContainer } from '../../utility/value-container';
 
 export class LockDeckExpectedDeckCheck extends ValueContainer<
   YGOProDeck | null | undefined

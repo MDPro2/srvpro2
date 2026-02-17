@@ -1320,7 +1320,7 @@ export class Room {
       extraScriptPaths,
       ocgcoreWasmPath,
       registry,
-      decks: duelRecord.players.map((p) => p.deck),
+      decks: duelRecord.toSwappedPlayers().map((p) => p.deck),
     });
 
     const [
