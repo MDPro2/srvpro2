@@ -393,7 +393,7 @@ export class CloudReplayService {
   private resolveReplayWinPlayer(replay: DuelRecordEntity) {
     const winnerPlayer = replay.players.find((player) => player.winner);
     if (!winnerPlayer) {
-      return undefined;
+      return 0x2; // PLAYER_NONE
     }
 
     const winnerDuelPos = this.resolveDuelPosBySeat(
