@@ -127,6 +127,9 @@ export const TRANSLATIONS = {
     cloud_replay_menu_play: 'Play Cloud Replay',
     cloud_replay_menu_download_yrp: 'Download YRP Replay',
     cloud_replay_menu_back: 'Back',
+    botlist_menu_single: 'Single',
+    botlist_menu_match: 'Match',
+    botlist_menu_back: 'Back',
   },
   'zh-CN': {
     update_required: '请更新你的客户端版本',
@@ -247,5 +250,8 @@ export const TRANSLATIONS = {
     cloud_replay_menu_play: '播放云录像',
     cloud_replay_menu_download_yrp: '下载 YRP 录像',
     cloud_replay_menu_back: '返回',
+    botlist_menu_single: '单局',
+    botlist_menu_match: '比赛',
+    botlist_menu_back: '返回',
   },
 };

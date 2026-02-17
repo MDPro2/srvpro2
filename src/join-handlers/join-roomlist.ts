@@ -26,28 +26,28 @@ export class JoinRoomlist {
   }
 
   private async openRoomListMenu(client: Client) {
-    const roomNames = this.roomManager
-      .allRooms()
-      .filter((room) => room.native)
-      .map((room) => room.name);
-    // .sort((a, b) => a.localeCompare(b));
+    await this.menuManager.launchMenu(client, async () => {
+      const roomNames = this.roomManager
+        .allRooms()
+        .filter((room) => room.native)
+        .map((room) => room.name);
 
-    const menu: MenuEntry[] = roomNames.map((roomName) => ({
-      title: roomName,
-      callback: async (menuClient) => {
-        const room = this.roomManager.findByName(roomName);
-        if (!room || !room.native) {
-          this.logger.debug(
-            { roomName },
-            'Roomlist target room no longer exists',
-          );
-          await this.openRoomListMenu(menuClient);
-          return;
-        }
-        await room.join(menuClient);
-      },
-    }));
-
-    await this.menuManager.launchMenu(client, menu);
+      const menu: MenuEntry[] = roomNames.map((roomName) => ({
+        title: roomName,
+        callback: async (menuClient) => {
+          const room = this.roomManager.findByName(roomName);
+          if (!room || !room.native) {
+            this.logger.debug(
+              { roomName },
+              'Roomlist target room no longer exists',
+            );
+            await this.openRoomListMenu(menuClient);
+            return;
+          }
+          await room.join(menuClient);
+        },
+      }));
+      return menu;
+    });
   }
 }

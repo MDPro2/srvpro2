@@ -124,6 +124,10 @@ export class WindBotProvider {
     return this.bots.find((bot) => bot.name === name || bot.deck === name);
   }
 
+  getBots() {
+    return this.bots.filter((bot) => !bot.hidden);
+  }
+
   issueJoinToken(roomName: string, windbot: WindbotData) {
     let token = '';
     do {

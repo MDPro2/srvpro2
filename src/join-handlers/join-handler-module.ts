@@ -13,6 +13,7 @@ import { JoinBlankPassRandomDuel } from './join-blank-pass-random-duel';
 import { JoinBlankPassWindbotAi } from './join-blank-pass-windbot-ai';
 import { JoinBlankPassMenu } from './join-blank-pass-menu';
 import { JoinRoomlist } from './join-roomlist';
+import { JoinBotlist } from './join-botlist';
 
 export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(ClientVersionCheck)
@@ -24,6 +25,7 @@ export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(JoinRoomIp)
   .provide(CloudReplayJoinHandler)
   .provide(JoinRoomlist)
+  .provide(JoinBotlist)
   .provide(JoinRoom)
   .provide(JoinBlankPassMenu)
   .provide(JoinBlankPassRandomDuel)
