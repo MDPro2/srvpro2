@@ -36,6 +36,25 @@ export class TcpServer {
   }
 
   private handleConnection(socket: Socket): void {
+    socket.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ECONNRESET') {
+        this.logger.debug(
+          { remoteAddress: socket.remoteAddress, remotePort: socket.remotePort },
+          'TCP socket reset by peer',
+        );
+        return;
+      }
+
+      this.logger.warn(
+        {
+          err,
+          remoteAddress: socket.remoteAddress,
+          remotePort: socket.remotePort,
+        },
+        'TCP socket error',
+      );
+    });
+
     const client = new TcpClient(this.ctx, socket);
     const handler = this.ctx.get(() => ClientHandler);
     handler.handleClient(client).catch((err) => {

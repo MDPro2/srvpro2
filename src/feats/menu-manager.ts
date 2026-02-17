@@ -12,11 +12,14 @@ import { Context } from '../app';
 import { Chnroute, Client, I18nService } from '../client';
 import { DefaultHostinfo } from '../room';
 import { resolvePanelPageLayout } from '../utility';
+import { Awaitable } from 'nfkit';
 
 export type MenuEntry = {
   title: string;
   callback: (client: Client) => Promise<unknown> | unknown;
 };
+
+export type MenuFactory = (client: Client) => Awaitable<MenuEntry[]>;
 
 type MenuAction =
   | {
@@ -79,10 +82,8 @@ export class MenuManager {
     });
   }
 
-  async launchMenu(client: Client, menu: MenuEntry[]) {
-    client.currentMenu = menu.filter(
-      (entry): entry is MenuEntry => !!entry,
-    );
+  async launchMenu(client: Client, menu: MenuFactory | MenuEntry[]) {
+    client.currentMenu = Array.isArray(menu) ? () => menu : menu;
     if (client.menuOffset == null) {
       client.menuOffset = 0;
     }
@@ -91,13 +92,12 @@ export class MenuManager {
 
   clearMenu(client: Client) {
     client.currentMenu = undefined;
+    client.currentMenuView = undefined;
     client.menuOffset = undefined;
   }
 
-  private buildMenuView(client: Client): MenuView {
-    const menu = (client.currentMenu || []).filter(
-      (entry): entry is MenuEntry => !!entry,
-    );
+  private async buildMenuView(client: Client): Promise<MenuView> {
+    const menu = (await client.currentMenu!(client)) || [];
     if (menu.length <= 2) {
       return {
         actions: menu.map((entry) => ({ type: 'entry', entry })),
@@ -163,23 +163,30 @@ export class MenuManager {
       return;
     }
 
-    const view = this.buildMenuView(client);
-    await client.send(
-      new YGOProStocJoinGame().fromPartial({
-        info: {
-          ...DefaultHostinfo,
-          mode: view.mode,
-        },
-      }),
-    );
-    await client.send(
-      new YGOProStocTypeChange().fromPartial({
-        type: NetPlayerType.OBSERVER | 0x10,
-      }),
-    );
+    const view = await this.buildMenuView(client);
+    client.currentMenuView = view;
+    if (
+      !client.maxRenderedMenuSlots ||
+      client.maxRenderedMenuSlots < view.slotCount
+    ) {
+      client.maxRenderedMenuSlots = view.slotCount;
+      await client.send(
+        new YGOProStocJoinGame().fromPartial({
+          info: {
+            ...DefaultHostinfo,
+            mode: view.mode,
+          },
+        }),
+      );
+      await client.send(
+        new YGOProStocTypeChange().fromPartial({
+          type: NetPlayerType.OBSERVER | 0x10,
+        }),
+      );
+    }
 
     const locale = this.chnroute.getLocale(client.ip);
-    for (let i = 0; i < view.slotCount; i++) {
+    for (let i = 0; i < client.maxRenderedMenuSlots; i++) {
       const action = view.actions[i];
       const rawTitle =
         action?.type === 'entry' ? action.entry.title : action?.title || '';
@@ -196,11 +203,11 @@ export class MenuManager {
   }
 
   private async handleKick(client: Client, index: number) {
-    if (!client.currentMenu) {
+    if (!client.currentMenuView) {
       return;
     }
 
-    const view = this.buildMenuView(client);
+    const view = client.currentMenuView;
     const selected = view.actions[index];
     if (!selected) {
       await this.renderMenu(client);
@@ -221,7 +228,9 @@ export class MenuManager {
 
 declare module '../client' {
   interface Client {
-    currentMenu?: MenuEntry[];
+    currentMenu?: MenuFactory;
+    currentMenuView?: MenuView;
+    maxRenderedMenuSlots?: number;
     menuOffset?: number;
   }
 }

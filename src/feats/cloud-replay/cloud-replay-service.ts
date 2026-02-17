@@ -168,7 +168,11 @@ export class CloudReplayService {
     player.score = resolvePlayerScore(room, client);
     player.startDeckBuffer = encodeDeckBase64(client.startDeck);
     player.startDeckMainc = resolveStartDeckMainc(client);
-    player.currentDeckBuffer = encodeCurrentDeckBase64(room, client, wasSwapped);
+    player.currentDeckBuffer = encodeCurrentDeckBase64(
+      room,
+      client,
+      wasSwapped,
+    );
     player.currentDeckMainc = resolveCurrentDeckMainc(room, client, wasSwapped);
     player.ingameDeckBuffer = encodeIngameDeckBase64(room, client, wasSwapped);
     player.ingameDeckMainc = resolveIngameDeckMainc(room, client, wasSwapped);
@@ -201,44 +205,45 @@ export class CloudReplayService {
   }
 
   private async renderReplayListMenu(client: Client) {
-    const page = await this.getReplayPage(client);
-    if (!page.entries.length) {
-      await client.die('#{cloud_replay_no}', ChatColor.RED);
-      return;
-    }
+    await this.menuManager.launchMenu(client, async () => {
+      const page = await this.getReplayPage(client);
+      if (!page.entries.length) {
+        await client.die('#{cloud_replay_no}', ChatColor.RED);
+        return;
+      }
 
-    const menu: MenuEntry[] = [];
-    if (!this.isFirstReplayPage(client)) {
-      menu.push({
-        title: '#{menu_prev_page}',
-        callback: async (currentClient) => {
-          this.goToPrevReplayPage(currentClient);
-          await this.renderReplayListMenu(currentClient);
-        },
-      });
-    }
+      const menu: MenuEntry[] = [];
+      if (!this.isFirstReplayPage(client)) {
+        menu.push({
+          title: '#{menu_prev_page}',
+          callback: async (currentClient) => {
+            this.goToPrevReplayPage(currentClient);
+            await this.renderReplayListMenu(currentClient);
+          },
+        });
+      }
 
-    for (const replay of page.entries) {
-      menu.push({
-        title: this.formatDate(replay.endTime),
-        callback: async (currentClient) => {
-          currentClient.cloudReplaySelectedReplayId = replay.id;
-          await this.renderReplayDetailMenu(currentClient, replay.id);
-        },
-      });
-    }
+      for (const replay of page.entries) {
+        menu.push({
+          title: this.formatDate(replay.endTime),
+          callback: async (currentClient) => {
+            currentClient.cloudReplaySelectedReplayId = replay.id;
+            await this.renderReplayDetailMenu(currentClient, replay.id);
+          },
+        });
+      }
 
-    if (page.hasNext && page.nextCursor != null) {
-      menu.push({
-        title: '#{menu_next_page}',
-        callback: async (currentClient) => {
-          this.goToNextReplayPage(currentClient, page.nextCursor!);
-          await this.renderReplayListMenu(currentClient);
-        },
-      });
-    }
-
-    await this.menuManager.launchMenu(client, menu);
+      if (page.hasNext && page.nextCursor != null) {
+        menu.push({
+          title: '#{menu_next_page}',
+          callback: async (currentClient) => {
+            this.goToNextReplayPage(currentClient, page.nextCursor!);
+            await this.renderReplayListMenu(currentClient);
+          },
+        });
+      }
+      return menu;
+    });
   }
 
   private async renderReplayDetailMenu(client: Client, replayId: number) {
@@ -297,10 +302,22 @@ export class CloudReplayService {
     const score = this.formatReplayScore(replay);
     const winners = this.formatReplayWinners(replay);
 
-    await client.sendChat(`#{cloud_replay_detail_time}${dateText}`, ChatColor.BABYBLUE);
-    await client.sendChat(`#{cloud_replay_detail_players}${versus}`, ChatColor.BABYBLUE);
-    await client.sendChat(`#{cloud_replay_detail_score}${score}`, ChatColor.BABYBLUE);
-    await client.sendChat(`#{cloud_replay_detail_winner}${winners}`, ChatColor.BABYBLUE);
+    await client.sendChat(
+      `#{cloud_replay_detail_time}${dateText}`,
+      ChatColor.BABYBLUE,
+    );
+    await client.sendChat(
+      `#{cloud_replay_detail_players}${versus}`,
+      ChatColor.BABYBLUE,
+    );
+    await client.sendChat(
+      `#{cloud_replay_detail_score}${score}`,
+      ChatColor.BABYBLUE,
+    );
+    await client.sendChat(
+      `#{cloud_replay_detail_winner}${winners}`,
+      ChatColor.BABYBLUE,
+    );
   }
 
   private async playReplayStream(
@@ -440,11 +457,7 @@ export class CloudReplayService {
     return {
       ...hostInfo,
       mode:
-        hostInfo.mode > 2
-          ? this.isTagMode(hostInfo)
-            ? 2
-            : 1
-          : hostInfo.mode,
+        hostInfo.mode > 2 ? (this.isTagMode(hostInfo) ? 2 : 1) : hostInfo.mode,
     };
   }
 
@@ -471,11 +484,7 @@ export class CloudReplayService {
     for (const player of sortedPlayers) {
       const deckBuffer = player.ingameDeckBuffer || player.currentDeckBuffer;
       const mainc = player.ingameDeckMainc ?? player.currentDeckMainc ?? 0;
-      const ingamePos = resolveIngamePosBySeat(
-        player.pos,
-        isTag,
-        wasSwapped,
-      );
+      const ingamePos = resolveIngamePosBySeat(player.pos, isTag, wasSwapped);
       players[ingamePos] = {
         name: player.name,
         deck: decodeDeckBase64(deckBuffer, mainc),
@@ -692,10 +701,10 @@ export class CloudReplayService {
     const teamOffsetBit = isTag ? 1 : 0;
 
     const team0 = sortedPlayers.filter(
-      (player) => ((player.pos & (0x1 << teamOffsetBit)) >> teamOffsetBit) === 0,
+      (player) => (player.pos & (0x1 << teamOffsetBit)) >> teamOffsetBit === 0,
     );
     const team1 = sortedPlayers.filter(
-      (player) => ((player.pos & (0x1 << teamOffsetBit)) >> teamOffsetBit) === 1,
+      (player) => (player.pos & (0x1 << teamOffsetBit)) >> teamOffsetBit === 1,
     );
     return [team0, team1] as const;
   }
