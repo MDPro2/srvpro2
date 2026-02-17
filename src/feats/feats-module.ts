@@ -15,6 +15,7 @@ import { HidePlayerNameProvider } from './hide-player-name-provider';
 import { CommandsService, KoishiContextService } from '../koishi';
 import { ChatgptService } from './chatgpt-service';
 import { CloudReplayService } from './cloud-replay';
+import { LpLowHintService } from './lp-low-hint-service';
 
 export const FeatsModule = createAppContext<ContextState>()
   .provide(ClientKeyProvider)
@@ -27,6 +28,7 @@ export const FeatsModule = createAppContext<ContextState>()
   .provide(PlayerStatusNotify)
   .provide(CloudReplayService) // persist duel records
   .provide(ChatgptService) // AI-room chat replies
+  .provide(LpLowHintService) // low LP hint in duel
   .provide(RefreshFieldService)
   .provide(Reconnect)
   .provide(WaitForPlayerProvider) // chat refresh
