@@ -15,8 +15,10 @@ export class DuelRecord {
   constructor(
     public seed: number[],
     public players: { name: string; deck: YGOProDeck }[],
+    public isSwapped: boolean,
   ) {}
-  date = new Date();
+  startTime = new Date();
+  endTime?: Date;
   winPosition?: number;
   responses: Buffer[] = [];
   messages: YGOProMsgBase[] = [];
@@ -46,7 +48,22 @@ export class DuelRecord {
     }
     header.seedSequence = this.seed;
     // Set start_time (stored in hash field) as Unix timestamp in seconds
-    header.hash = Math.floor(this.date.getTime() / 1000);
+    header.hash = Math.floor(this.startTime.getTime() / 1000);
+
+    const players = [...this.players];
+    if (this.isSwapped) {
+      const swapElements = (a: number, b: number) => {
+        const temp = players[a];
+        players[a] = players[b];
+        players[b] = temp;
+      };
+      if (isTag) {
+        swapElements(0, 2);
+        swapElements(1, 3);
+      } else {
+        swapElements(0, 1);
+      }
+    }
 
     // Build YGOProYrp object
     // Note: players array is already swapped
@@ -62,22 +79,20 @@ export class DuelRecord {
     //     (note the deck order: 0,1,3,2 - this matches ygopro's load order)
     const yrp = new YGOProYrp({
       header,
-      hostName: this.players[0]?.name || '',
-      clientName: isTag
-        ? this.players[3]?.name || ''
-        : this.players[1]?.name || '',
+      hostName: players[0]?.name || '',
+      clientName: isTag ? players[3]?.name || '' : players[1]?.name || '',
       startLp: room.hostinfo.start_lp,
       startHand: room.hostinfo.start_hand,
       drawCount: room.hostinfo.draw_count,
       opt: calculateDuelOptions(room.hostinfo),
-      hostDeck: this.toReplayDeck(this.players[0]?.deck),
+      hostDeck: this.toReplayDeck(players[0]?.deck),
       clientDeck: isTag
-        ? this.toReplayDeck(this.players[2]?.deck)
-        : this.toReplayDeck(this.players[1]?.deck),
-      tagHostName: isTag ? this.players[1]?.name || '' : null,
-      tagClientName: isTag ? this.players[2]?.name || '' : null,
-      tagHostDeck: isTag ? this.toReplayDeck(this.players[1]?.deck) : null,
-      tagClientDeck: isTag ? this.toReplayDeck(this.players[3]?.deck) : null,
+        ? this.toReplayDeck(players[2]?.deck)
+        : this.toReplayDeck(players[1]?.deck),
+      tagHostName: isTag ? players[1]?.name || '' : null,
+      tagClientName: isTag ? players[2]?.name || '' : null,
+      tagHostDeck: isTag ? this.toReplayDeck(players[1]?.deck) : null,
+      tagClientDeck: isTag ? this.toReplayDeck(players[3]?.deck) : null,
       singleScript: null,
       responses: this.responses.map((buf) => new Uint8Array(buf)),
     });

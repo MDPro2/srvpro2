@@ -14,29 +14,6 @@ export function resolvePlayerScore(room: Room, client: Client) {
   return room.score[duelPos] || 0;
 }
 
-function resolveTeamOffsetBit(isTag: boolean) {
-  return isTag ? 1 : 0;
-}
-
-export function resolveIngamePosBySeat(
-  pos: number,
-  isTag: boolean,
-  wasSwapped: boolean,
-) {
-  if (!wasSwapped) {
-    return pos;
-  }
-  return pos ^ (0x1 << resolveTeamOffsetBit(isTag));
-}
-
-export function resolveRecordIngamePos(
-  room: Room,
-  client: Client,
-  wasSwapped: boolean,
-) {
-  return resolveIngamePosBySeat(client.pos, room.isTag, wasSwapped);
-}
-
 export function resolveIsFirstPlayer(
   room: Room,
   client: Client,
@@ -94,49 +71,32 @@ export function resolveStartDeckMainc(client: Client) {
   return client.startDeck?.main?.length || 0;
 }
 
-function resolveRecordDeck(room: Room, client: Client, wasSwapped = false) {
-  const ingamePos = resolveRecordIngamePos(room, client, wasSwapped);
-  const duelRecordPlayer = room.lastDuelRecord?.players[ingamePos];
+function resolveRecordDeck(room: Room, client: Client) {
+  const duelRecordPlayer = room.lastDuelRecord?.players[client.pos];
   return duelRecordPlayer?.deck;
 }
 
-function resolveCurrentDeck(room: Room, client: Client, wasSwapped = false) {
+function resolveCurrentDeck(room: Room, client: Client) {
   if (client.deck) {
     return client.deck;
   }
-  return resolveRecordDeck(room, client, wasSwapped);
+  return resolveRecordDeck(room, client);
 }
 
-export function resolveCurrentDeckMainc(
-  room: Room,
-  client: Client,
-  wasSwapped = false,
-) {
-  return resolveCurrentDeck(room, client, wasSwapped)?.main?.length || 0;
+export function resolveCurrentDeckMainc(room: Room, client: Client) {
+  return resolveCurrentDeck(room, client)?.main?.length || 0;
 }
 
-export function encodeCurrentDeckBase64(
-  room: Room,
-  client: Client,
-  wasSwapped = false,
-) {
-  return encodeDeckBase64(resolveCurrentDeck(room, client, wasSwapped));
+export function encodeCurrentDeckBase64(room: Room, client: Client) {
+  return encodeDeckBase64(resolveCurrentDeck(room, client));
 }
 
-export function encodeIngameDeckBase64(
-  room: Room,
-  client: Client,
-  wasSwapped: boolean,
-) {
-  return encodeDeckBase64(resolveRecordDeck(room, client, wasSwapped));
+export function encodeIngameDeckBase64(room: Room, client: Client) {
+  return encodeDeckBase64(resolveRecordDeck(room, client));
 }
 
-export function resolveIngameDeckMainc(
-  room: Room,
-  client: Client,
-  wasSwapped: boolean,
-) {
-  return resolveRecordDeck(room, client, wasSwapped)?.main?.length || 0;
+export function resolveIngameDeckMainc(room: Room, client: Client) {
+  return resolveRecordDeck(room, client)?.main?.length || 0;
 }
 
 export function decodeMessagesBase64(messagesBase64: string) {

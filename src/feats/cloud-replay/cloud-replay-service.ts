@@ -1,4 +1,3 @@
-import cryptoRandomString from 'crypto-random-string';
 import YGOProDeck from 'ygopro-deck-encode';
 import {
   ChatColor,
@@ -15,7 +14,7 @@ import {
 } from 'ygopro-msg-encode';
 import { Context } from '../../app';
 import { Client } from '../../client';
-import { DuelRecord, OnRoomCreate, OnRoomWin, Room } from '../../room';
+import { DuelRecord, OnRoomWin, Room } from '../../room';
 import { ClientKeyProvider } from '../client-key-provider';
 import { MenuEntry, MenuManager } from '../menu-manager';
 import { DuelRecordEntity } from './duel-record.entity';
@@ -33,7 +32,6 @@ import {
   encodeSeedBase64,
   resolveCurrentDeckMainc,
   resolveIngameDeckMainc,
-  resolveIngamePosBySeat,
   resolveIsFirstPlayer,
   resolvePlayerScore,
   resolveStartDeckMainc,
@@ -52,12 +50,6 @@ type ReplayDetailMenuOptions = {
 
 type DirectReplayPassAction = 'detail' | 'watch' | 'downloadYrp';
 
-declare module '../../room' {
-  interface Room {
-    identifier?: string;
-  }
-}
-
 declare module '../../client' {
   interface Client {
     cloudReplayPageCursors?: Array<number | null>;
@@ -72,11 +64,6 @@ export class CloudReplayService {
   private menuManager = this.ctx.get(() => MenuManager);
 
   constructor(private ctx: Context) {
-    this.ctx.middleware(OnRoomCreate, async (event, _client, next) => {
-      event.room.identifier = this.createRoomIdentifier();
-      return next();
-    });
-
     this.ctx.middleware(OnRoomWin, async (event, _client, next) => {
       await this.saveDuelRecord(event);
       return next();
@@ -129,13 +116,6 @@ export class CloudReplayService {
     return true;
   }
 
-  private createRoomIdentifier() {
-    return cryptoRandomString({
-      length: 64,
-      type: 'alphanumeric',
-    });
-  }
-
   private async saveDuelRecord(event: OnRoomWin) {
     const database = this.ctx.database;
     if (!database) {
@@ -151,10 +131,9 @@ export class CloudReplayService {
     const duelRecordRepo = database.getRepository(DuelRecordEntity);
 
     try {
-      const now = new Date();
       const record = duelRecordRepo.create({
-        startTime: duelRecord.date,
-        endTime: now,
+        startTime: duelRecord.startTime,
+        endTime: duelRecord.endTime || new Date(),
         name: room.name,
         roomIdentifier: this.getRoomIdentifier(room),
         hostInfo: room.hostinfo,
@@ -201,22 +180,15 @@ export class CloudReplayService {
     player.score = resolvePlayerScore(room, client);
     player.startDeckBuffer = encodeDeckBase64(client.startDeck);
     player.startDeckMainc = resolveStartDeckMainc(client);
-    player.currentDeckBuffer = encodeCurrentDeckBase64(
-      room,
-      client,
-      wasSwapped,
-    );
-    player.currentDeckMainc = resolveCurrentDeckMainc(room, client, wasSwapped);
-    player.ingameDeckBuffer = encodeIngameDeckBase64(room, client, wasSwapped);
-    player.ingameDeckMainc = resolveIngameDeckMainc(room, client, wasSwapped);
+    player.currentDeckBuffer = encodeCurrentDeckBase64(room, client);
+    player.currentDeckMainc = resolveCurrentDeckMainc(room, client);
+    player.ingameDeckBuffer = encodeIngameDeckBase64(room, client);
+    player.ingameDeckMainc = resolveIngameDeckMainc(room, client);
     player.winner = room.getDuelPos(client) === winPlayer;
     return player;
   }
 
   private getRoomIdentifier(room: Room) {
-    if (!room.identifier) {
-      room.identifier = this.createRoomIdentifier();
-    }
     return room.identifier;
   }
 
@@ -553,7 +525,6 @@ export class CloudReplayService {
   }
 
   private restoreDuelRecord(replay: DuelRecordEntity) {
-    const isTag = this.isTagMode(replay.hostInfo);
     const wasSwapped = this.resolveReplaySwappedByIsFirst(replay);
     const seatCount = this.resolveSeatCount(replay.hostInfo);
     const players = Array.from({ length: seatCount }, () => ({
@@ -565,14 +536,22 @@ export class CloudReplayService {
     for (const player of sortedPlayers) {
       const deckBuffer = player.ingameDeckBuffer || player.currentDeckBuffer;
       const mainc = player.ingameDeckMainc ?? player.currentDeckMainc ?? 0;
-      const ingamePos = resolveIngamePosBySeat(player.pos, isTag, wasSwapped);
-      players[ingamePos] = {
+      if (player.pos < 0 || player.pos >= seatCount) {
+        continue;
+      }
+      players[player.pos] = {
         name: player.name,
         deck: decodeDeckBase64(deckBuffer, mainc),
       };
     }
 
-    const duelRecord = new DuelRecord(decodeSeedBase64(replay.seed), players);
+    const duelRecord = new DuelRecord(
+      decodeSeedBase64(replay.seed),
+      players,
+      wasSwapped,
+    );
+    duelRecord.startTime = replay.startTime;
+    duelRecord.endTime = replay.endTime;
     duelRecord.responses = decodeResponsesBase64(replay.responses);
     return duelRecord;
   }

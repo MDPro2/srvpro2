@@ -106,6 +106,9 @@ import { OnRoomSidingReady } from './room-event/on-room-siding-ready';
 import { OnRoomFinger } from './room-event/on-room-finger';
 import { OnRoomSelectTp } from './room-event/on-room-select-tp';
 import { RoomCheckDeck } from './room-event/room-check-deck';
+import cryptoRandomString from 'crypto-random-string';
+import { pick } from 'koishi';
+import { get } from 'http';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 
@@ -118,6 +121,11 @@ export class Room {
     private partialHostinfo: Partial<HostInfo> = {},
   ) {}
 
+  identifier = cryptoRandomString({
+    length: 64,
+    type: 'alphanumeric',
+  });
+  createTime = new Date();
   private logger = this.ctx.createLogger(`Room:${this.name}`);
 
   hostinfo = this.ctx
@@ -512,6 +520,7 @@ export class Room {
     const lastDuelRecord = this.lastDuelRecord;
     if (lastDuelRecord) {
       lastDuelRecord.winPosition = duelPos;
+      lastDuelRecord.endTime = new Date();
     }
     if (typeof forceWinMatch === 'number') {
       const loseDuelPos = (1 - duelPos) as 0 | 1;
@@ -1106,6 +1115,9 @@ export class Room {
   private registry: Record<string, string> = {};
   turnCount = 0;
   turnIngamePos = 0;
+  get turnPos() {
+    return this.getIngameDuelPosByDuelPos(this.turnIngamePos);
+  }
   phase = undefined;
   timerState = new TimerState();
   lastResponseRequestMsg?: YGOProMsgResponseBase;
@@ -1250,17 +1262,8 @@ export class Room {
     const duelRecord = new DuelRecord(
       generateSeed(),
       this.playingPlayers.map((p) => ({ name: p.name, deck: p.deck! })),
+      this.isPosSwapped,
     );
-    if (this.isPosSwapped) {
-      this.playingPlayers.forEach((p) => {
-        // Keep full seat order (0/1/2/3 in tag), matching tag_duel.cpp swap:
-        // swap(0,2) and swap(1,3)
-        duelRecord.players[this.getIngamePos(p)] = {
-          name: p.name,
-          deck: p.deck!,
-        };
-      });
-    }
     if (!this.hostinfo.no_shuffle_deck) {
       const shuffledDecks = shuffleDecksBySeed(
         duelRecord.players.map((p) => p.deck),
@@ -1841,5 +1844,45 @@ export class Room {
     }
     // TODO: teammate surrender in tag duel
     return this.win({ player: 1 - this.getIngameDuelPos(client), type: 0x0 });
+  }
+
+  async getCurrentFieldInfo() {
+    if (!this.ocgcore) {
+      return undefined;
+    }
+    const fieldInfo = await this.ocgcore.queryFieldInfo();
+    const players = fieldInfo?.field?.players;
+    if (!players?.length) {
+      return undefined;
+    }
+    return players.map((p) => ({
+      lp: p.lp,
+      cardCount:
+        p.handCount + [...p.mzone, ...p.szone].filter((p) => p.occupied).length,
+    }));
+  }
+
+  async getInfo() {
+    const fieldInfo = await this.getCurrentFieldInfo();
+    return {
+      ...pick(this as Room, [
+        'identifier',
+        'name',
+        'hostinfo',
+        'duelStage',
+        'createTime',
+      ]),
+      watcherCount: this.watchers.size,
+      players: this.playingPlayers.map((p) => ({
+        ...pick(p, ['name', 'pos', 'ip']),
+        deck: p.deck?.toYGOMobileDeckURL(),
+        startDeck: p.startDeck?.toYGOMobileDeckURL(),
+        lp: fieldInfo?.[this.getIngameDuelPos(p)]?.lp,
+        cardCount: fieldInfo?.[this.getIngameDuelPos(p)]?.cardCount,
+      })),
+      duels: this.duelRecords.map((d) => ({
+        ...pick(d, ['startTime', 'endTime'])
+      })),
+    };
   }
 }
