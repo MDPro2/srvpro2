@@ -13,6 +13,7 @@ import type {
   WindbotJoinTokenData,
 } from './utility';
 import { ReverseWsClient } from './reverse-ws-client';
+import { RoomCheckDeck } from '../../room/room-event/room-check-deck';
 
 declare module '../../client' {
   interface Client {
@@ -94,10 +95,21 @@ export class WindBotProvider {
       await this.requestWindbotJoin(room, botName);
     });
 
-    this.ctx.middleware(OnRoomFinalize, async (event, _client, next) => {
-      this.deleteRoomToken(event.room.name);
-      return next();
-    });
+    this.ctx
+      .middleware(OnRoomFinalize, async (event, _client, next) => {
+        this.deleteRoomToken(event.room.name);
+        return next();
+      })
+      .middleware(
+        RoomCheckDeck,
+        async (evt, client, next) => {
+          if (client.windbot) {
+            return undefined; // entirely skip check deck for windbot client
+          }
+          return next();
+        },
+        true,
+      );
   }
 
   async init() {
