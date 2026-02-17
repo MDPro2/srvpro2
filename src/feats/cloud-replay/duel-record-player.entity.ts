@@ -21,6 +21,7 @@ export class DuelRecordPlayer extends BaseTimeEntity {
   @Generated('increment')
   id!: number;
 
+  @Index()
   @Column({
     type: 'varchar',
     length: 20,
@@ -52,6 +53,7 @@ export class DuelRecordPlayer extends BaseTimeEntity {
   })
   clientKey!: string; // getClientKey(client)
 
+  @Index()
   @Column('bool')
   isFirst!: boolean; // wasSwapped ? duelPos==1 : duelPos==0
 

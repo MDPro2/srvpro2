@@ -35,6 +35,10 @@
 - srvpro 里面的 client.send（发送给客户端）还是对应 client.send
 - srvpro 里面 server.send（模拟客户端发送消息）对应 this.ctx.dispatch(msgClassInstance, client)
 
+## ts-rest 相关
+
+- 契约文件放在 src/api/contract.ts 一个文件里面，方便其他项目复制。
+
 ## 参考项目
 
 可以参考电脑的下面的项目，用来参考。这些代码只能看，不能改。~ 指代这台电脑的 HOME 目录。

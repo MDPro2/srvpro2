@@ -25,6 +25,7 @@ export class DuelRecordEntity extends BaseTimeEntity {
   @Column('timestamp')
   startTime!: Date; // duelRecord.time
 
+  @Index()
   @Column('timestamp')
   endTime!: Date; // 入库时间
 
@@ -51,8 +52,9 @@ export class DuelRecordEntity extends BaseTimeEntity {
   @Column('smallint', {
     unsigned: true,
   })
-  duelCount!: number; // room.duelCount.length
+  duelCount!: number; // room.duelRecords.length
 
+  @Index()
   @Column('smallint')
   winReason!: number; // OnRoomWin.winMsg.type
 
