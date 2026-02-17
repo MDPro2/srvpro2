@@ -12,6 +12,7 @@ import { BadwordPlayerInfoChecker } from './badword-player-info-checker';
 import { JoinBlankPassRandomDuel } from './join-blank-pass-random-duel';
 import { JoinBlankPassWindbotAi } from './join-blank-pass-windbot-ai';
 import { JoinBlankPassMenu } from './join-blank-pass-menu';
+import { JoinRoomlist } from './join-roomlist';
 
 export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(ClientVersionCheck)
@@ -22,6 +23,7 @@ export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(JoinWindbotAi)
   .provide(JoinRoomIp)
   .provide(CloudReplayJoinHandler)
+  .provide(JoinRoomlist)
   .provide(JoinRoom)
   .provide(JoinBlankPassMenu)
   .provide(JoinBlankPassRandomDuel)

@@ -46,7 +46,9 @@ export class ClientHandler {
         return next();
       })
       .middleware(YGOProCtosJoinGame, async (msg, client, next) => {
-        client.roompass = msg.pass || '';
+        if (!msg.bypassEstablished) {
+          client.roompass = msg.pass || '';
+        }
         return next();
       })
       .middleware(

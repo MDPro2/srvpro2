@@ -139,6 +139,12 @@ export const defaultConfig = {
   // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
   // Note: with default-true parsing, empty string is treated as true.
   ENABLE_RECONNECT: '1',
+  // Enable cloud replay menu entry (R/W pass handling).
+  // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
+  ENABLE_CLOUD_REPLAY: '1',
+  // Enable room list menu entry (L pass handling).
+  // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
+  ENABLE_ROOMLIST: '1',
   // Reconnect timeout after disconnect. Format: integer string in milliseconds (ms).
   RECONNECT_TIMEOUT: '180000',
   // Hide player name mode in random duel rooms.

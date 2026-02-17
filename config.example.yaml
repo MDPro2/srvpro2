@@ -61,6 +61,8 @@ chatgptSystemPrompt: 你是{{windbot}}，一名与{{player}}实时互动的游�
 chatgptTokenLimit: 12000
 chatgptExtraOpts: {}
 enableReconnect: 1
+enableCloudReplay: 1
+enableRoomlist: 1
 reconnectTimeout: 180000
 hidePlayerName: 0
 enableRandomDuel: 1
