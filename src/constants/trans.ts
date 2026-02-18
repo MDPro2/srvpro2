@@ -157,6 +157,9 @@ export const TRANSLATIONS = {
     death_finish_part2: ', You win the Duel.',
     death2_finish_part1: 'Extra time match ends, congratulations. ',
     death2_finish_part2: ', You win the Match.',
+    auto_death_part1:
+      'This room is an auto-extra-duel room. The Extra Duel will begin after ',
+    auto_death_part2: ' minutes.',
     lp_low_opponent: 'もはやお前のライフは風前の灯！',
     lp_low_self: '*Low LP Alert*',
     botlist_menu_single: 'Single',
@@ -308,6 +311,8 @@ export const TRANSLATIONS = {
     death_finish_part2: ' 获得本次决斗的胜利。',
     death2_finish_part1: '加时赛结束，恭喜 ',
     death2_finish_part2: ' 获得本次比赛的胜利。',
+    auto_death_part1: '本房间为自动加时赛房间。比赛开始',
+    auto_death_part2: '分钟后，将自动进入加时赛。',
     lp_low_opponent: '你的生命已经如风中残烛了！',
     lp_low_self: '背水一战！',
     botlist_menu_single: '单局',
