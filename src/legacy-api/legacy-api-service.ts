@@ -86,7 +86,9 @@ export class LegacyApiService {
     this.addApiMessageHandler('death', 'start_death', async (value) => {
       const roomDeathService = this.ctx.get(() => RoomDeathService);
       const foundRooms =
-        value === 'all' ? this.ctx.get(() => RoomManager).allRooms() : this.findRoomByTarget(value);
+        value === 'all'
+          ? this.ctx.get(() => RoomManager).allRooms()
+          : this.findRoomByTarget(value);
       if (!foundRooms.length) {
         return ['room not found', value];
       }
@@ -105,7 +107,9 @@ export class LegacyApiService {
     this.addApiMessageHandler('deathcancel', 'start_death', async (value) => {
       const roomDeathService = this.ctx.get(() => RoomDeathService);
       const foundRooms =
-        value === 'all' ? this.ctx.get(() => RoomManager).allRooms() : this.findRoomByTarget(value);
+        value === 'all'
+          ? this.ctx.get(() => RoomManager).allRooms()
+          : this.findRoomByTarget(value);
       if (!foundRooms.length) {
         return ['room not found', value];
       }

@@ -35,7 +35,6 @@ export const TypeormFactory = async (ctx: AppContext) => {
   const password = config.getString('DB_PASS');
   const database = config.getString('DB_NAME');
   const synchronize = !config.getBoolean('DB_NO_INIT');
-  
 
   const dataSource = new DataSource({
     type: 'postgres',

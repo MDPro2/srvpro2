@@ -243,12 +243,6 @@ export class RandomDuelProvider {
     );
     if (found) {
       const foundType = found.randomType || type || this.defaultType;
-      found.randomType = foundType;
-      found.hidePlayerNames = this.hidePlayerNameProvider.enabled;
-      found.randomDuelDeprecated = joinState.deprecated;
-      found.checkChatBadword = true;
-      found.noHost = true;
-      found.randomDuelMaxPlayer = this.resolveRandomDuelMaxPlayer(foundType);
       found.welcome = '#{random_duel_enter_room_waiting}';
       this.applyWelcomeType(found, foundType);
       return { room: found };

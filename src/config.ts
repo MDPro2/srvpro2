@@ -154,6 +154,27 @@ export const defaultConfig = {
   // Enable tournament mode deck lock check hook.
   // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
   TOURNAMENT_MODE_CHECK_DECK: '1',
+  // Enable Challonge integration.
+  // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
+  CHALLONGE_ENABLED: '0',
+  // Disable challonge room name "M#" prefix and use pure match id as room name.
+  // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
+  CHALLONGE_NO_MATCH_MODE: '0',
+  // Post detailed match score to Challonge (for example 2-1).
+  // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
+  CHALLONGE_POST_DETAILED_SCORE: '1',
+  // Post score at siding stage without winner_id (midduel sync).
+  // Boolean parse rule (default true): only '0'/'false'/'null' => false, otherwise true.
+  CHALLONGE_POST_SCORE_MIDDUEL: '1',
+  // Challonge tournament cache TTL in milliseconds.
+  // Format: integer string in milliseconds (ms).
+  CHALLONGE_CACHE_TTL: '60000',
+  // Challonge API key.
+  CHALLONGE_API_KEY: '',
+  // Challonge tournament id/slug.
+  CHALLONGE_TOURNAMENT_ID: '',
+  // Challonge API base URL.
+  CHALLONGE_URL: 'https://api.challonge.com',
   // Block replay packets to players who are currently in a room.
   // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
   BLOCK_REPLAY_TO_PLAYER: '0',

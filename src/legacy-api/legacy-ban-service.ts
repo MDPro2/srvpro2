@@ -24,7 +24,9 @@ export class LegacyBanService {
         return client.die('#{banned_user_login}', ChatColor.RED);
       }
 
-      const ipBan = client.ip ? await this.findBanRecord({ ip: client.ip }) : null;
+      const ipBan = client.ip
+        ? await this.findBanRecord({ ip: client.ip })
+        : null;
       if (ipBan) {
         this.logger.info(
           { name: client.name, ip: client.ip },

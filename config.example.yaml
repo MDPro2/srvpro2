@@ -10,7 +10,8 @@ dbName: srvpro2
 dbNoInit: 0
 redisUrl: ""
 logLevel: info
-wsPort: 0
+wsHost: ""
+wsPort: 7912
 enableSsl: 0
 sslPath: ./ssl
 sslCert: ""
@@ -66,6 +67,14 @@ enableReconnect: 1
 enableCloudReplay: 1
 tournamentMode: 0
 tournamentModeCheckDeck: 1
+challongeEnabled: 0
+challongeNoMatchMode: 0
+challongePostDetailedScore: 1
+challongePostScoreMidduel: 1
+challongeCacheTtl: 60000
+challongeApiKey: ""
+challongeTournamentId: ""
+challongeUrl: https://api.challonge.com
 blockReplayToPlayer: 0
 enableRoomlist: 1
 reconnectTimeout: 180000

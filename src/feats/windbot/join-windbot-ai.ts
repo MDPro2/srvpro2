@@ -39,7 +39,6 @@ export class JoinWindbotAi {
 
     const existingRoom = this.roomManager.findByName(normalizedPass);
     if (existingRoom) {
-      existingRoom.noHost = true;
       await existingRoom.join(client);
       return true;
     }

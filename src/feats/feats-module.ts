@@ -19,6 +19,7 @@ import { LockDeckService } from './lock-deck';
 import { BlockReplay } from './block-replay';
 import { RoomDeathService } from './room-death-service';
 import { RoomAutoDeathService } from './room-auto-death-service';
+import { ChallongeService } from './challonge-service';
 
 export const FeatsModule = createAppContext()
   .provide(ClientKeyProvider)
@@ -35,6 +36,7 @@ export const FeatsModule = createAppContext()
   .provide(LpLowHintService) // low LP hint in duel
   .provide(RoomDeathService) // srvpro-style death mode (model 2)
   .provide(RoomAutoDeathService) // auto trigger death mode after duel start
+  .provide(ChallongeService) // challonge deck lock + score sync
   .provide(LockDeckService) // srvpro-style tournament deck lock check
   .provide(RefreshFieldService)
   .provide(Reconnect)

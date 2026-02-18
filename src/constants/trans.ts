@@ -18,6 +18,7 @@ export const TRANSLATIONS = {
     replay_hint_part1: 'Sending the replay of the duel number ',
     replay_hint_part2: '.',
     watch_join: 'joined as spectator.',
+    cannot_to_observer: 'Spectating is not allowed in a matchup.',
     quit_watch: 'quited spectating',
     left_game: 'quited game',
     disconnect_from_game: 'disconnected from the game',
@@ -130,6 +131,8 @@ export const TRANSLATIONS = {
     cloud_replay_playing: 'Accessing cloud replay',
     cloud_replay_hint:
       'These are your recent cloud replays. Select one from the menu to continue.',
+    cloud_replay_delay_part1: 'The replay code for last duel is ',
+    cloud_replay_delay_part2: '. It can be accessed after this match.',
     cloud_replay_detail_time: 'Time: ',
     cloud_replay_detail_players: 'Duel: ',
     cloud_replay_detail_score: 'Score: ',
@@ -139,6 +142,15 @@ export const TRANSLATIONS = {
     cloud_replay_menu_play: 'Play Cloud Replay',
     cloud_replay_menu_download_yrp: 'Download YRP Replay',
     cloud_replay_menu_back: 'Back',
+    challonge_user_not_found: 'You are not a participant of the tournament.',
+    challonge_match_load_failed: 'Failed loading tournament info.',
+    challonge_match_not_found: 'Your current match was not found.',
+    challonge_match_already_finished:
+      'Your current match was already finished. Please call the judge for any help.',
+    challonge_match_created:
+      'A room for match only is created. Your opponent will join in automatically.',
+    challonge_player_already_in:
+      'Please do not enter the room you are already in.',
     death_cancel: 'Over-match has been canceled from this game.',
     death_start:
       'Over-time match has begun, player with higher LP will win the single game after 4 turns.',
@@ -184,6 +196,7 @@ export const TRANSLATIONS = {
     replay_hint_part1: '正在发送第',
     replay_hint_part2: '局决斗的录像。',
     watch_join: '加入了观战',
+    cannot_to_observer: '匹配模式中决斗者不允许观战。',
     quit_watch: '退出了观战',
     left_game: '离开了游戏',
     disconnect_from_game: '断开了连接',
@@ -287,6 +300,8 @@ export const TRANSLATIONS = {
     cloud_replay_error: '播放录像出错',
     cloud_replay_playing: '正在观看云录像',
     cloud_replay_hint: '以下是您近期的云录像，请在菜单中选择一条继续。',
+    cloud_replay_delay_part1: '本场比赛云录像：',
+    cloud_replay_delay_part2: '。将于本局结束后可播放。',
     cloud_replay_detail_time: '时间：',
     cloud_replay_detail_players: '对局：',
     cloud_replay_detail_score: '比分：',
@@ -296,9 +311,18 @@ export const TRANSLATIONS = {
     cloud_replay_menu_play: '播放云录像',
     cloud_replay_menu_download_yrp: '下载 YRP 录像',
     cloud_replay_menu_back: '返回',
+    challonge_user_not_found: '未找到你的参赛信息。',
+    challonge_match_load_failed: '读取比赛信息失败。',
+    challonge_match_not_found: '你没有当前轮次的比赛。',
+    challonge_match_already_finished:
+      '你在当前轮次的比赛已经结束，如需重赛，请联系裁判。',
+    challonge_match_created: '已建立比赛专用房间，将会自动匹配你的对手。',
+    challonge_player_already_in: '请不要重复加入比赛房间。',
     death_cancel: '已取消本房间的加时赛状态。',
-    death_start: '加时赛开始，从本回合开始计算4回合，基本分高的玩家获得本次决斗的胜利。',
-    death_start_siding: '加时赛开始，下次决斗的第4回合结束时，基本分高的玩家决斗胜利。',
+    death_start:
+      '加时赛开始，从本回合开始计算4回合，基本分高的玩家获得本次决斗的胜利。',
+    death_start_siding:
+      '加时赛开始，下次决斗的第4回合结束时，基本分高的玩家决斗胜利。',
     death_start_final:
       '本次决斗将进入猝死赛，基本分发生变动的回合结束时，基本分高的玩家将获得本次决斗的胜利。',
     death_start_extra:

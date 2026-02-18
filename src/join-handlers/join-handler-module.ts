@@ -14,20 +14,22 @@ import { JoinBlankPassWindbotAi } from './join-blank-pass-windbot-ai';
 import { JoinBlankPassMenu } from './join-blank-pass-menu';
 import { JoinRoomlist } from './join-roomlist';
 import { JoinBotlist } from './join-botlist';
+import { ChallongeJoinHandler } from './challonge-join-handler';
 
 export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(ClientVersionCheck)
   .provide(JoinPrechecks)
   .provide(JoinWindbotToken)
   .provide(BadwordPlayerInfoChecker)
-  .provide(RandomDuelJoinHandler)
-  .provide(JoinWindbotAi)
-  .provide(JoinRoomIp)
-  .provide(CloudReplayJoinHandler)
-  .provide(JoinRoomlist)
-  .provide(JoinBotlist)
-  .provide(JoinRoom)
-  .provide(JoinBlankPassMenu)
+  .provide(JoinRoomIp) // IP
+  .provide(CloudReplayJoinHandler) // R, R#, W, W#, YRP#
+  .provide(ChallongeJoinHandler) // any
+  .provide(RandomDuelJoinHandler) // M, T
+  .provide(JoinWindbotAi) // AI, AI#
+  .provide(JoinRoomlist) // L
+  .provide(JoinBotlist) // B
+  .provide(JoinRoom) // room pass
+  .provide(JoinBlankPassMenu) // blank pass below
   .provide(JoinBlankPassRandomDuel)
   .provide(JoinBlankPassWindbotAi)
   .provide(JoinFallback)

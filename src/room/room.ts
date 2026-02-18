@@ -371,12 +371,16 @@ export class Room {
     }
   }
 
-  async join(client: Client) {
+  async join(client: Client, toObserver = false) {
     client.roomName = this.name;
-    client.isHost = this.noHost ? false : !this.allPlayers.length;
     const firstEmptyPlayerSlot = this.players.findIndex((p) => !p);
     const isPlayer =
-      firstEmptyPlayerSlot >= 0 && this.duelStage === DuelStage.Begin;
+      !toObserver &&
+      firstEmptyPlayerSlot >= 0 &&
+      this.duelStage === DuelStage.Begin;
+    client.isHost = this.noHost
+      ? false
+      : isPlayer && !this.playingPlayers.length;
 
     if (isPlayer) {
       this.players[firstEmptyPlayerSlot] = client;

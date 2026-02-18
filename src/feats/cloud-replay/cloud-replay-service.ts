@@ -153,6 +153,7 @@ export class CloudReplayService {
       });
 
       await duelRecordRepo.save(record);
+      await this.trySendTournamentReplayHint(room, record.id);
     } catch (error) {
       this.logger.warn(
         {
@@ -162,6 +163,16 @@ export class CloudReplayService {
         'Failed saving duel record',
       );
     }
+  }
+
+  private async trySendTournamentReplayHint(room: Room, replayId: number) {
+    if (!this.ctx.config.getBoolean('TOURNAMENT_MODE')) {
+      return;
+    }
+    await room.sendChat(
+      `#{cloud_replay_delay_part1}R#${replayId}#{cloud_replay_delay_part2}`,
+      ChatColor.BABYBLUE,
+    );
   }
 
   private buildPlayerRecord(

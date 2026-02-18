@@ -3,6 +3,7 @@ import { LegacyDeckEntity } from './legacy-deck.entity';
 import { decodeDeckBase64, encodeDeckBase64 } from '../feats/cloud-replay';
 import YGOProDeck from 'ygopro-deck-encode';
 import { LockDeckExpectedDeckCheck } from '../feats/lock-deck';
+import { ChallongeParticipantUpload, ChallongeService } from '../feats';
 import { deckNameMatch } from './utility/deck-name-match';
 import {
   getDeckNameExactCandidates,
@@ -32,6 +33,7 @@ type DeckDashboardStreamConnection = {
 
 export class LegacyApiDeckService {
   private logger = this.ctx.createLogger('LegacyApiDeckService');
+  private challongeService = this.ctx.get(() => ChallongeService);
   private streamConnections = new Map<string, DeckDashboardStreamConnection>();
   private backgrounds: DeckDashboardBg[] = [{ url: '', desc: '' }];
   private bgRefreshedAt = 0;
@@ -199,7 +201,22 @@ export class LegacyApiDeckService {
         koaCtx.body = 'Auth Failed.';
         return;
       }
-      this.sendDeckDashboardMessage('未开启Challonge模式。');
+      this.sendDeckDashboardMessage('开始读取玩家列表。');
+      const participants = await this.loadChallongeParticipantsFromDecks();
+      if (!participants.length) {
+        this.sendDeckDashboardMessage('玩家列表为空。');
+        koaCtx.body = '操作完成。';
+        return;
+      }
+      this.sendDeckDashboardMessage(
+        `读取玩家列表完毕，共有${participants.length}名玩家。`,
+      );
+
+      for await (const text of this.challongeService.uploadToChallonge(
+        participants,
+      )) {
+        this.sendDeckDashboardMessage(text);
+      }
       koaCtx.body = '操作完成。';
     });
 
@@ -420,6 +437,52 @@ export class LegacyApiDeckService {
     await repo.save(row);
   }
 
+  private async loadChallongeParticipantsFromDecks() {
+    const repo = this.getDeckRepo();
+    if (!repo) {
+      return [] as ChallongeParticipantUpload[];
+    }
+
+    const rows = await repo.find({
+      order: {
+        uploadTime: 'DESC',
+        id: 'DESC',
+      },
+    });
+    const loaded = new Set<string>();
+    const participants: ChallongeParticipantUpload[] = [];
+    for (const row of rows) {
+      const name = this.toChallongeParticipantName(row.name);
+      if (!name || loaded.has(name)) {
+        continue;
+      }
+      try {
+        const deck = decodeDeckBase64(row.payload, row.mainc);
+        participants.push({
+          name,
+          deckbuf: Buffer.from(deck.toUpdateDeckPayload()).toString('base64'),
+        });
+        loaded.add(name);
+      } catch (error: unknown) {
+        this.logger.warn(
+          {
+            deckName: row.name,
+            err: error,
+          },
+          'Failed to decode legacy deck for challonge upload',
+        );
+      }
+    }
+    return participants;
+  }
+
+  private toChallongeParticipantName(deckName: string) {
+    if (deckName.endsWith('.ydk')) {
+      return deckName.slice(0, -4);
+    }
+    return deckName;
+  }
+
   private addStreamConnection(ip: string, response: ServerResponse) {
     this.closeStreamConnection(ip, 'replaced_by_same_ip');
 
@@ -432,7 +495,10 @@ export class LegacyApiDeckService {
     });
   }
 
-  private removeStreamConnection(ip: string, expectedResponse?: ServerResponse) {
+  private removeStreamConnection(
+    ip: string,
+    expectedResponse?: ServerResponse,
+  ) {
     const connection = this.streamConnections.get(ip);
     if (!connection) {
       return;
@@ -559,7 +625,10 @@ export class LegacyApiDeckService {
       const body = response.data as any;
       const images = Array.isArray(body?.images) ? body.images : [];
       if (!images.length) {
-        this.logger.warn({ body }, 'Deck dashboard background API returned no images');
+        this.logger.warn(
+          { body },
+          'Deck dashboard background API returned no images',
+        );
         return;
       }
       const next = images
@@ -575,7 +644,9 @@ export class LegacyApiDeckService {
         })
         .filter((item): item is DeckDashboardBg => !!item);
       if (!next.length) {
-        this.logger.warn('Deck dashboard background API parse produced no valid result');
+        this.logger.warn(
+          'Deck dashboard background API parse produced no valid result',
+        );
         return;
       }
       this.backgrounds = next;

@@ -2,6 +2,8 @@ export * from './client-version-check';
 export * from './client-key-provider';
 export * from './chatgpt-service';
 export * from './block-replay';
+export * from './challonge-api';
+export * from './challonge-service';
 export * from './cloud-replay';
 export * from './hide-player-name-provider';
 export * from './lock-deck';
