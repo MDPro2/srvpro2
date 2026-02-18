@@ -23,11 +23,11 @@ export const JoinHandlerModule = createAppContext<ContextState>()
   .provide(BadwordPlayerInfoChecker)
   .provide(JoinRoomIp) // IP
   .provide(CloudReplayJoinHandler) // R, R#, W, W#, YRP#
+  .provide(JoinRoomlist) // L
+  .provide(JoinWindbotAi) // AI, AI#
+  .provide(JoinBotlist) // B
   .provide(ChallongeJoinHandler) // any
   .provide(RandomDuelJoinHandler) // M, T
-  .provide(JoinWindbotAi) // AI, AI#
-  .provide(JoinRoomlist) // L
-  .provide(JoinBotlist) // B
   .provide(JoinRoom) // room pass
   .provide(JoinBlankPassMenu) // blank pass below
   .provide(JoinBlankPassRandomDuel)
