@@ -1,5 +1,7 @@
 host: "::"
 port: 7911
+apiHost: ""
+apiPort: 7922
 dbHost: ""
 dbPort: 5432
 dbUser: postgres

@@ -7,8 +7,7 @@ import {
   OneToMany,
   PrimaryColumn,
 } from 'typeorm';
-import { BaseTimeEntity } from '../../utility';
-import { BigintTransformer } from './bigint-transformer';
+import { BaseTimeEntity, BigintTransformer } from '../../utility';
 import { DuelRecordPlayer } from './duel-record-player.entity';
 
 @Entity('duel_record')

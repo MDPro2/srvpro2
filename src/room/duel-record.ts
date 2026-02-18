@@ -24,7 +24,7 @@ export class DuelRecord {
   messages: YGOProMsgBase[] = [];
 
   toSwappedPlayers() {
-    if (!this.isSwapped) { 
+    if (!this.isSwapped) {
       return [...this.players];
     }
     const swappedPlayers = [...this.players];

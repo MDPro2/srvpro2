@@ -4,7 +4,7 @@ import BetterLock from 'better-lock';
 import { HostInfo } from 'ygopro-msg-encode';
 
 declare module './room' {
-  export interface Room { 
+  export interface Room {
     native?: boolean;
   }
 }

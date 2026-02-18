@@ -1,4 +1,7 @@
-import { YGOProLFListError, YGOProLFListErrorReason } from 'ygopro-lflist-encode';
+import {
+  YGOProLFListError,
+  YGOProLFListErrorReason,
+} from 'ygopro-lflist-encode';
 import { ChatColor } from 'ygopro-msg-encode';
 import { Context } from '../../app';
 import { RoomCheckDeck } from '../../room';

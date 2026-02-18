@@ -524,6 +524,18 @@ export class CloudReplayService {
     });
   }
 
+  buildReplayYrpPayload(replay: DuelRecordEntity) {
+    return this.createReplayPacket(replay).replay.toYrp();
+  }
+
+  async getReplayYrpPayloadById(replayId: number) {
+    const replay = await this.findReplayById(replayId);
+    if (!replay) {
+      return undefined;
+    }
+    return this.buildReplayYrpPayload(replay);
+  }
+
   private restoreDuelRecord(replay: DuelRecordEntity) {
     const wasSwapped = this.resolveReplaySwappedByIsFirst(replay);
     const seatCount = this.resolveSeatCount(replay.hostInfo);

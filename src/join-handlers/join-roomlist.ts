@@ -29,7 +29,7 @@ export class JoinRoomlist {
     await this.menuManager.launchMenu(client, async () => {
       const roomNames = this.roomManager
         .allRooms()
-        .filter((room) => room.native)
+        .filter((room) => room.native && !room.name.includes('$'))
         .map((room) => room.name);
 
       const menu: MenuEntry[] = roomNames.map((roomName) => ({

@@ -2,6 +2,7 @@ import { ChatColor } from 'ygopro-msg-encode';
 import { Context } from '../app';
 import { Client } from '../client';
 import { OnRoomJoin } from '../room/room-event/on-room-join';
+import { ValueContainer } from '../utility/value-container';
 
 declare module '../room' {
   interface Room {
@@ -17,8 +18,6 @@ declare module '../client' {
 }
 
 export class Welcome {
-  private welcomeMessage = this.ctx.config.getString('WELCOME');
-
   constructor(private ctx: Context) {
     this.ctx.middleware(OnRoomJoin, async (event, client, next) => {
       const room = event.room;
@@ -34,10 +33,29 @@ export class Welcome {
   }
 
   async sendConfigWelcome(client: Client) {
-    if (!this.welcomeMessage || client.configWelcomeSent) {
+    const welcomeMessage = await this.getConfigWelcome(client);
+    if (!welcomeMessage || client.configWelcomeSent) {
       return;
     }
     client.configWelcomeSent = true;
-    await client.sendChat(this.welcomeMessage, ChatColor.GREEN);
+    await client.sendChat(welcomeMessage, ChatColor.GREEN);
+  }
+
+  async getConfigWelcome(client: Client) {
+    const baseWelcome = this.ctx.config.getString('WELCOME');
+    const event = await this.ctx.dispatch(
+      new WelcomeConfigCheck(client, baseWelcome),
+      client,
+    );
+    return event?.value || '';
+  }
+}
+
+export class WelcomeConfigCheck extends ValueContainer<string> {
+  constructor(
+    public client: Client,
+    initialValue: string,
+  ) {
+    super(initialValue);
   }
 }

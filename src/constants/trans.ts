@@ -29,6 +29,8 @@ export const TRANSLATIONS = {
       'Error occurs, please create a new game and enter /ai to summon an AI.',
     create_room_failed: 'Game creation failed, please try again later.',
     invalid_password_not_found: 'Password invalid (Not Found)',
+    banned_ip_login: 'You have been banned.',
+    banned_user_login: 'You have been banned.',
     add_windbot_failed: 'AI addition failed, enter /ai again.',
     pre_reconnecting_to_room:
       'You will be reconnected to your previous game. Please pick your previous deck.',
@@ -170,6 +172,10 @@ export const TRANSLATIONS = {
     windbot_name_too_long: 'AI房间名过长，请在建立房间后输入 /ai 来添加AI',
     create_room_failed: '建立房间失败，请重试',
     invalid_password_not_found: '主机密码不正确 (Not Found)',
+    banned_ip_login:
+      '您的账号已被封禁。如果您没有进行违规操作且用的是流量网络，可能过几小时就好。是IP撞了。',
+    banned_user_login:
+      '您的账号已被封禁。如果您没有进行违规操作且用的是流量网络，可能过几小时就好。是IP撞了。',
     add_windbot_failed: '添加AI失败，可尝试输入 /ai 重新添加',
     pre_reconnecting_to_room:
       '你有未完成的对局，即将重新连接，请选择你在本局决斗中使用的卡组并准备。',

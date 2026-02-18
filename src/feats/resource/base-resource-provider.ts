@@ -1,6 +1,5 @@
 import { Context } from '../../app';
 import { ValueContainer } from '../../utility/value-container';
-import { FileResourceService } from './file-resource-service';
 import { cloneJson } from './resource-util';
 
 type AnyObject = Record<string, unknown>;
@@ -12,7 +11,7 @@ type RemoteEntry<T extends object> = {
 
 export abstract class BaseResourceProvider<T extends object> {
   protected logger = this.ctx.createLogger(this.constructor.name);
-  protected fileResourceService = this.ctx.get(() => FileResourceService);
+  protected fileResourceService = this.ctx.fileResource;
 
   protected data: ValueContainer<T>;
   public resource: ValueContainer<T>;

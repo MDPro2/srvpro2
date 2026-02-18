@@ -12,6 +12,10 @@ export const defaultConfig = {
   HOST: '::',
   // Main server port for YGOPro clients. Format: integer string.
   PORT: '7911',
+  // Legacy HTTP API bind address. Empty means fallback to HOST.
+  API_HOST: '',
+  // Legacy HTTP API port. Format: integer string. '0' means disabled.
+  API_PORT: '7922',
   // PostgreSQL host. Empty means database disabled.
   DB_HOST: '',
   // PostgreSQL port. Format: integer string.
@@ -29,8 +33,10 @@ export const defaultConfig = {
   REDIS_URL: '',
   // Log level. Format: lowercase string (e.g. info/debug/warn/error).
   LOG_LEVEL: 'info',
+  // WebSocket server bind host. Empty means fallback to HOST.
+  WS_HOST: '',
   // WebSocket port. Format: integer string. '0' means do not open a separate WS port.
-  WS_PORT: '0',
+  WS_PORT: '7912',
   // Enable SSL for WebSocket server.
   // Boolean parse rule (default false): ''/'0'/'false'/'null' => false, otherwise true.
   ENABLE_SSL: '0',

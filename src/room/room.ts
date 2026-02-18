@@ -1872,12 +1872,17 @@ export class Room {
         'name',
         'hostinfo',
         'duelStage',
+        'turnCount',
         'createTime',
       ]),
       watcherCount: this.watchers.size,
       players: this.playingPlayers.map((p) => ({
         ...pick(p, ['name', 'pos', 'ip']),
         deck: p.deck?.toYdkeURL(),
+        score:
+          this.getDuelPos(p) >= 0 && this.getDuelPos(p) <= 1
+            ? this.score[this.getDuelPos(p) as 0 | 1]
+            : undefined,
         lp: fieldInfo?.[this.getIngameDuelPos(p)]?.lp,
         cardCount: fieldInfo?.[this.getIngameDuelPos(p)]?.cardCount,
       })),

@@ -1,4 +1,3 @@
-import { Context } from '../app';
 import { TlsOptions } from 'node:tls';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +8,9 @@ import {
   timingSafeEqual,
   KeyObject,
 } from 'node:crypto';
+import { AppContext } from 'nfkit';
+import { ConfigService } from './config';
+import { Logger } from './logger';
 
 type LoadedCandidate = {
   certPath: string;
@@ -19,13 +21,14 @@ type LoadedCandidate = {
 };
 
 export class SSLFinder {
-  constructor(private ctx: Context) {}
-  private enableSSL = this.ctx.config.getBoolean('ENABLE_SSL');
-  private sslPath = this.ctx.config.getString('SSL_PATH');
-  private sslKey = this.ctx.config.getString('SSL_KEY');
-  private sslCert = this.ctx.config.getString('SSL_CERT');
+  constructor(private ctx: AppContext) {}
+  private config = this.ctx.get(() => ConfigService).config;
+  private enableSSL = this.config.getBoolean('ENABLE_SSL');
+  private sslPath = this.config.getString('SSL_PATH');
+  private sslKey = this.config.getString('SSL_KEY');
+  private sslCert = this.config.getString('SSL_CERT');
 
-  private logger = this.ctx.createLogger('SSLFinder');
+  private logger = this.ctx.get(() => Logger).createLogger('SSLFinder');
 
   private noSSL() {
     if (this.sslPath || this.sslKey || this.sslCert) {
@@ -41,11 +44,9 @@ export class SSLFinder {
       return undefined;
     }
 
-    // 1) 优先 SSL_CERT + SSL_KEY
     const explicit = this.tryExplicit(this.sslCert, this.sslKey);
     if (explicit) return { cert: explicit.certBuf, key: explicit.keyBuf };
 
-    // 2) 其次 sslPath：递归找 fullchain.pem + 同目录 privkey.pem，排除过期/不匹配；选有效期最长
     const best = this.findBestFromPath(this.sslPath);
     if (!best) return this.noSSL();
 
@@ -116,7 +117,6 @@ export class SSLFinder {
     const now = Date.now();
 
     for (const fullchainPath of this.walkFindByName(baseDir, 'fullchain.pem')) {
-      // 先读 cert（一次），不合格就别读 key
       const certBuf = this.readFileBuffer(fullchainPath);
       if (!certBuf) continue;
 
@@ -171,7 +171,6 @@ export class SSLFinder {
   private parseLeafCertFromBuffer(
     certBuf: Buffer,
   ): { x509: X509Certificate; validToMs: number } | undefined {
-    // fullchain.pem / cert.pem 里通常第一个 CERT block 是 leaf
     const pem = certBuf.toString('utf8');
     const firstCertPem = this.extractFirstPemCertificate(pem);
     if (!firstCertPem) return undefined;
@@ -199,16 +198,11 @@ export class SSLFinder {
     keyPathForLog: string,
   ): boolean {
     try {
-      // cert 公钥
       const certPub = x509.publicKey;
-
-      // private key -> derive public key
       const priv = createPrivateKey(keyBuf);
       const derivedPub = createPublicKey(priv);
-
       return this.publicKeysEqual(certPub, derivedPub);
     } catch (err: any) {
-      // 这里常见是：私钥被 passphrase 加密 / 格式不对
       this.logger.warn(
         { keyPath: keyPathForLog, err: err?.message ?? String(err) },
         'Failed to parse private key for match check; treating as mismatch',
@@ -218,7 +212,6 @@ export class SSLFinder {
   }
 
   private publicKeysEqual(a: KeyObject, b: KeyObject): boolean {
-    // 统一导出成 spki der 来对比
     const aDer = a.export({ type: 'spki', format: 'der' }) as Buffer;
     const bDer = b.export({ type: 'spki', format: 'der' }) as Buffer;
 

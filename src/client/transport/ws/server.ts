@@ -3,7 +3,7 @@ import { createServer as createHttpsServer } from 'node:https';
 import { Server as WebSocketServer } from 'ws';
 import { Context } from '../../../app';
 import { ClientHandler } from '../../client-handler';
-import { SSLFinder } from '../../ssl-finder';
+import { SSLFinder } from '../../../services/ssl-finder';
 import { WsClient } from './client';
 import { WebSocket } from 'ws';
 import { IpResolver } from '../../ip-resolver';
@@ -26,7 +26,8 @@ export class WsServer {
       return;
     }
 
-    const host = this.ctx.config.getString('HOST');
+    const host =
+      this.ctx.config.getString('WS_HOST') || this.ctx.config.getString('HOST');
 
     // Try to get SSL configuration
     const sslFinder = this.ctx.get(() => SSLFinder);

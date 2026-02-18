@@ -39,7 +39,10 @@ export class TcpServer {
     socket.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'ECONNRESET') {
         this.logger.debug(
-          { remoteAddress: socket.remoteAddress, remotePort: socket.remotePort },
+          {
+            remoteAddress: socket.remoteAddress,
+            remotePort: socket.remotePort,
+          },
           'TCP socket reset by peer',
         );
         return;

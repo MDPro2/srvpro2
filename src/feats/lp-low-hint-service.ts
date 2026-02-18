@@ -1,4 +1,8 @@
-import { ChatColor, YGOProMsgDamage, YGOProMsgPayLpCost } from 'ygopro-msg-encode';
+import {
+  ChatColor,
+  YGOProMsgDamage,
+  YGOProMsgPayLpCost,
+} from 'ygopro-msg-encode';
 import { Context } from '../app';
 import { Client } from '../client';
 import { RoomManager } from '../room';

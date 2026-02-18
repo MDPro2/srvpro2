@@ -5,7 +5,11 @@ export class BigintTransformer implements ValueTransformer {
     if (dbValue == null) {
       return dbValue;
     }
-    return Number.parseInt(String(dbValue), 10);
+    const numberValue = Number.parseInt(String(dbValue), 10);
+    if (!Number.isFinite(numberValue)) {
+      return null;
+    }
+    return numberValue;
   }
 
   to(entityValue: unknown) {

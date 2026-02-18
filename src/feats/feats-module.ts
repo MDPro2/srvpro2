@@ -1,6 +1,5 @@
 import { createAppContext } from 'nfkit';
 import { ClientVersionCheck } from './client-version-check';
-import { ContextState } from '../app';
 import { Welcome } from './welcome';
 import { PlayerStatusNotify } from './player-status-notify';
 import { Reconnect, RefreshFieldService } from './reconnect';
@@ -19,7 +18,7 @@ import { LpLowHintService } from './lp-low-hint-service';
 import { LockDeckService } from './lock-deck';
 import { BlockReplay } from './block-replay';
 
-export const FeatsModule = createAppContext<ContextState>()
+export const FeatsModule = createAppContext()
   .provide(ClientKeyProvider)
   .provide(HidePlayerNameProvider)
   .provide(KoishiContextService)

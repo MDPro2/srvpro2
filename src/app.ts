@@ -11,6 +11,11 @@ import { SqljsFactory, SqljsLoader } from './services/sqljs';
 import { FeatsModule } from './feats/feats-module';
 import { MiddlewareRx } from './services/middleware-rx';
 import { TypeormFactory, TypeormLoader } from './services/typeorm';
+import { SSLFinder } from './services/ssl-finder';
+import { KoaService } from './services/koa-service';
+import { FileResourceService } from './file-resource';
+import { LegacyApiAuthService } from './services/legacy-api-auth-service';
+import { LegacyApiModule } from './legacy-api/legacy-api-module';
 
 const core = createAppContext()
   .provide(ConfigService, {
@@ -21,6 +26,16 @@ const core = createAppContext()
   .provide(MiddlewareRx, { merge: ['event$'] })
   .provide(HttpClient, { merge: ['http'] })
   .provide(AragamiService, { merge: ['aragami'] })
+  .provide(SSLFinder)
+  .provide(FileResourceService, {
+    provide: 'fileResource',
+  })
+  .provide(LegacyApiAuthService, {
+    provide: 'legacyApiAuth',
+  })
+  .provide(KoaService, {
+    merge: ['router', 'koa'],
+  })
   .provide(SqljsLoader, {
     useFactory: SqljsFactory,
     merge: ['SQL'],
@@ -37,6 +52,7 @@ export type ContextState = AppContextState<Context>;
 export const app = core
   .use(TransportModule)
   .use(FeatsModule)
+  .use(LegacyApiModule)
   .use(RoomModule)
   .use(JoinHandlerModule)
   .define();

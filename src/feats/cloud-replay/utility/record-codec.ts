@@ -144,7 +144,9 @@ function decodeLengthPrefixedResponses(payload: Buffer) {
 }
 
 export function decodeSeedBase64(seedBase64: string) {
-  const decoded = seedBase64 ? Buffer.from(seedBase64, 'base64') : Buffer.alloc(0);
+  const decoded = seedBase64
+    ? Buffer.from(seedBase64, 'base64')
+    : Buffer.alloc(0);
   const raw = Buffer.alloc(32, 0);
   decoded.copy(raw, 0, 0, Math.min(decoded.length, raw.length));
   const seed: number[] = [];
