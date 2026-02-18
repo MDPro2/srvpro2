@@ -132,10 +132,20 @@ export class Room {
     .get(() => DefaultHostInfoProvider)
     .parseHostinfo(this.name, this.partialHostinfo);
 
-  get winMatchCount() {
+  get hostinfoWinMatchCount() {
     const firstbit = this.hostinfo.mode & 0x1;
     const remainingBits = (this.hostinfo.mode & 0xfc) >>> 1;
     return (firstbit | remainingBits) + 1;
+  }
+
+  get winMatchCount() {
+    return this.overrideWinMatchCount ?? this.hostinfoWinMatchCount;
+  }
+
+  private overrideWinMatchCount?: number;
+
+  setOverrideWinMatchCount(value: number) { 
+    this.overrideWinMatchCount = value;
   }
 
   get isTag() {
@@ -1285,7 +1295,7 @@ export class Room {
       ...this.resourceLoader.extraScriptPaths,
     ];
 
-    const isMatchMode = this.winMatchCount > 1;
+    const isMatchMode = this.hostinfoWinMatchCount > 1;
     const duelMode = this.isTag ? 'tag' : isMatchMode ? 'match' : 'single';
     const registry: Record<string, string> = {
       ...this.registry,
