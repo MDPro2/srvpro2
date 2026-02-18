@@ -7,6 +7,7 @@ import {
   YGOProCtosTpResult,
   YGOProCtosUpdateDeck,
   YGOProMsgResponseBase,
+  YGOProMsgRetry,
 } from 'ygopro-msg-encode';
 import { Context } from '../app';
 import { Client } from '../client';
@@ -57,7 +58,7 @@ export class WaitForPlayerProvider {
   constructor(private ctx: Context) {
     this.ctx.middleware(
       YGOProMsgResponseBase,
-      async (_msg, client, next) => {
+      async (msg, client, next) => {
         const room = this.getRoom(client);
         if (!room || !this.hasTickForRoom(room)) {
           return next();
@@ -65,7 +66,28 @@ export class WaitForPlayerProvider {
         try {
           return await next();
         } finally {
-          this.setWaitForPlayer(room, client);
+          const operatePlayer = room.getIngameOperatingPlayer(
+            msg.responsePlayer(),
+          );
+          this.setWaitForPlayer(room, operatePlayer);
+          this.refreshLastActiveTime(room);
+        }
+      },
+      true,
+    );
+
+    this.ctx.middleware(
+      YGOProMsgRetry,
+      async (msg, client, next) => {
+        const room = this.getRoom(client);
+        if (!room || !this.hasTickForRoom(room)) {
+          return next();
+        }
+        try {
+          return await next();
+        } finally {
+          const operatePlayer = room.responsePlayer;
+          if (operatePlayer) this.setWaitForPlayer(room, operatePlayer);
           this.refreshLastActiveTime(room);
         }
       },

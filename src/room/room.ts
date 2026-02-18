@@ -1752,6 +1752,15 @@ export class Room {
   private matchKilled = false;
   private responsePos?: number;
 
+  get responsePlayer() {
+    if (this.responsePos == null) {
+      return undefined;
+    }
+    return this.getIngameOperatingPlayer(
+      this.getIngameDuelPosByDuelPos(this.responsePos),
+    );
+  }
+
   private canAdvance() {
     return this.duelStage === DuelStage.Dueling && !!this.ocgcore;
   }
@@ -1827,12 +1836,7 @@ export class Room {
     if (this.timerState.runningPos !== this.responsePos) {
       return;
     }
-    if (
-      client !==
-      this.getIngameOperatingPlayer(
-        this.getIngameDuelPosByDuelPos(this.responsePos),
-      )
-    ) {
+    if (client !== this.responsePlayer) {
       return;
     }
 
@@ -1863,10 +1867,7 @@ export class Room {
   private async onResponse(client: Client, msg: YGOProCtosResponse) {
     if (
       this.responsePos == null ||
-      client !==
-        this.getIngameOperatingPlayer(
-          this.getIngameDuelPosByDuelPos(this.responsePos),
-        ) ||
+      client !== this.responsePlayer ||
       !this.ocgcore // || this.timerState.awaitingConfirm
     ) {
       return;
