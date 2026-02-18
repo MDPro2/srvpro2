@@ -446,14 +446,24 @@ export class OcgcoreWorker {
   @WorkerMethod()
   @WorkerFinalize()
   async dispose() {
-    // Dump registry and send to master thread via masterFinalize
+    // masterFinalize must always run; fallback to {} when dump fails.
+    let registryData: Record<string, string> = {};
     if (this.duel && !this.duel.ended) {
-      const registryDump = this.duel.dumpRegistry();
-      await this.masterFinalize(registryDump.dict);
+      try {
+        const registryDump = this.duel.dumpRegistry();
+        registryData = registryDump.dict;
+      } catch (error) {
+        console.warn('Failed to dump registry in OcgcoreWorker.dispose', error);
+      }
     }
+    await this.masterFinalize(registryData);
 
     if (this.duel && !this.duel.ended) {
-      this.duel.endDuel();
+      try {
+        this.duel.endDuel();
+      } catch (e) {
+        console.warn('Failed to end duel in OcgcoreWorker.dispose', e);
+      }
     }
     this.ocgcore.finalize();
   }
