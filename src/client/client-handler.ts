@@ -78,7 +78,7 @@ export class ClientHandler {
 
   private logger = this.ctx.createLogger('ClientHandler');
 
-  async handleClient(client: Client): Promise<void> {
+  async handleClient(client: Client) {
     client.init();
 
     // 将 disconnect$ 映射为 YGOProCtosDisconnect 消息
@@ -124,10 +124,11 @@ export class ClientHandler {
       ),
     ]).pipe(timeout(5000), takeUntil(client.disconnect$));
 
-    firstValueFrom(handshake$)
+    return firstValueFrom(handshake$)
       .then(() => {
         this.logger.debug({ client: client.name }, 'Handshake completed');
         client.established = true;
+        return true;
       })
       .catch((error) => {
         this.logger.debug(
@@ -140,6 +141,7 @@ export class ClientHandler {
           'Handshake failed, disconnecting client',
         );
         client.disconnect();
+        return false;
       });
   }
 }

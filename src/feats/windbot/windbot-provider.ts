@@ -309,20 +309,52 @@ export class WindBotProvider {
     token: string,
     botName: string,
     url: URL,
-  ) {
+    retryCount = 0,
+  ): Promise<boolean> {
+    const retryLimit = 3;
+    const retry = async () => {
+      // wait 200 ms
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      this.logger.warn(
+        { roomToken: token, botName, retryCount },
+        'Retrying windbot join by reverse ws',
+      );
+      return this.requestWindbotJoinByReverseWs(
+        room,
+        token,
+        botName,
+        url,
+        retryCount + 1,
+      );
+    };
+
     try {
       const sock = await this.createReverseWsConnection(url);
       const client = new ReverseWsClient(this.ctx, sock);
-      this.clientHandler.handleClient(client).catch((error) => {
+      const res = await this.clientHandler
+        .handleClient(client)
+        .catch((error) => {
+          this.logger.warn(
+            {
+              roomToken: token,
+              botName,
+              error: (error as Error).toString(),
+            },
+            'Reverse ws windbot client handler failed',
+          );
+        });
+
+      if (!res) {
         this.logger.warn(
-          {
-            roomToken: token,
-            botName,
-            error: (error as Error).toString(),
-          },
-          'Reverse ws windbot client handler failed',
+          { roomToken: token, botName },
+          'Reverse ws windbot client failed to establish connection',
         );
-      });
+        if (retryCount < retryLimit) {
+          return retry();
+        }
+        await room.sendChat('#{add_windbot_failed}', ChatColor.RED);
+        return false;
+      }
 
       return true;
     } catch (error) {
@@ -334,6 +366,9 @@ export class WindBotProvider {
         },
         'Windbot reverse ws request failed',
       );
+      if (retryCount < retryLimit) {
+        return retry();
+      }
       await room.sendChat('#{add_windbot_failed}', ChatColor.RED);
       return false;
     }
