@@ -5,7 +5,7 @@ import {
 import { ChatColor } from 'ygopro-msg-encode';
 import { Context } from '../../app';
 import { RoomCheckDeck } from '../../room';
-import { isSrvproTournamentDeckEqual } from '../../utility/deck-compare';
+import { isUpdateDeckPayloadEqual } from '../../utility/deck-compare';
 import { LockDeckExpectedDeckCheck } from './lock-deck-check';
 
 class SrvproDeckBadError extends YGOProLFListError {
@@ -47,7 +47,7 @@ export class LockDeckService {
       }
 
       const deckName = expectedDeck.name || '';
-      if (isSrvproTournamentDeckEqual(msg.deck, expectedDeck)) {
+      if (isUpdateDeckPayloadEqual(msg.deck, expectedDeck)) {
         await client.sendChat(
           `#{deck_correct_part1}${deckName}#{deck_correct_part2}`,
           ChatColor.BABYBLUE,
