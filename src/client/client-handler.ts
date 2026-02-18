@@ -129,7 +129,16 @@ export class ClientHandler {
         this.logger.debug({ client: client.name }, 'Handshake completed');
         client.established = true;
       })
-      .catch(() => {
+      .catch((error) => {
+        this.logger.warn(
+          {
+            client: client.name || client.loggingIp(),
+            ip: client.loggingIp(),
+            isInternal: client.isInternal,
+            error: (error as Error)?.message || String(error),
+          },
+          'Handshake failed, disconnecting client',
+        );
         client.disconnect();
       });
   }

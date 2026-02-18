@@ -22,17 +22,35 @@ export class JoinWindbotToken {
       const token = msg.pass.slice('AIJOIN#'.length);
       const tokenData = this.windbotProvider.consumeJoinToken(token);
       if (!tokenData) {
+        this.logger.warn(
+          { token, clientIp: client.loggingIp() },
+          'Windbot token not found when joining',
+        );
         return client.die('#{invalid_password_not_found}', ChatColor.RED);
       }
 
       const room = this.roomManager.findByName(tokenData.roomName);
       if (!room) {
+        this.logger.warn(
+          { token, roomName: tokenData.roomName, clientIp: client.loggingIp() },
+          'Windbot target room not found when joining',
+        );
         return client.die('#{invalid_password_not_found}', ChatColor.RED);
       }
 
       client.isInternal = true;
       client.windbot = tokenData.windbot;
-      return room.join(client);
+      await room.join(client);
+      this.logger.info(
+        {
+          token,
+          roomName: room.name,
+          botName: tokenData.windbot.name,
+          pos: client.pos,
+        },
+        'Windbot joined room by token',
+      );
+      return;
     });
   }
 }
