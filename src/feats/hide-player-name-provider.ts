@@ -41,6 +41,10 @@ export class HidePlayerNameProvider {
     return `Player ${client.pos + 1}`;
   }
 
+  getHidPlayerNameFactory(client: Pick<Client, 'pos' | 'name' | 'roomName'>) {
+    return (sightPlayer?: Client) => this.getHidPlayerName(client, sightPlayer);
+  }
+
   async init() {
     if (!this.enabled) {
       return;

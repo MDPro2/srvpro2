@@ -98,7 +98,6 @@ export class RandomDuelProvider {
   private roomManager = this.ctx.get(() => RoomManager);
   private waitForPlayerProvider = this.ctx.get(() => WaitForPlayerProvider);
   private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
-  private hidePlayerNameProvider = this.ctx.get(() => HidePlayerNameProvider);
   private defaultHostInfoProvider = this.ctx.get(() => DefaultHostInfoProvider);
   private hidePlayerName = this.ctx.get(() => HidePlayerNameProvider);
 
@@ -259,7 +258,7 @@ export class RandomDuelProvider {
     }
     const room = await this.roomManager.findOrCreateByName(roomName);
     room.randomType = randomType;
-    room.hidePlayerNames = this.hidePlayerNameProvider.enabled;
+    room.hidePlayerNames = this.hidePlayerName.enabled;
     room.randomDuelDeprecated = joinState.deprecated;
     room.checkChatBadword = true;
     room.noHost = true;
@@ -751,48 +750,55 @@ export class RandomDuelProvider {
 
     const clientScoreText = await this.getScoreDisplay(
       this.getClientKey(client),
-      this.hidePlayerName.getHidPlayerName(client, client),
     );
+    const nameFactory = this.hidePlayerName.getHidPlayerNameFactory(client);
     for (const player of players) {
       if (clientScoreText) {
-        await player.sendChat(clientScoreText, ChatColor.GREEN);
+        await player.sendChat(
+          clientScoreText(nameFactory(player)),
+          ChatColor.GREEN,
+        );
       }
       if (player === client) {
         continue;
       }
       const playerScoreText = await this.getScoreDisplay(
         this.getClientKey(player),
-        this.hidePlayerName.getHidPlayerName(player, client),
       );
       if (playerScoreText) {
-        await client.sendChat(playerScoreText, ChatColor.GREEN);
+        await client.sendChat(
+          playerScoreText(this.hidePlayerName.getHidPlayerName(player, client)),
+          ChatColor.GREEN,
+        );
       }
     }
   }
 
-  private async getScoreDisplay(name: string, displayName: string) {
+  private async getScoreDisplay(name: string) {
     const repo = this.ctx.database?.getRepository(RandomDuelScore);
     if (!repo || !name) {
-      return '';
+      return undefined;
     }
     const score = await repo.findOneBy({ name });
-    if (!score) {
-      return `${displayName} #{random_score_blank}`;
-    }
+    return (displayName: string) => {
+      if (!score) {
+        return `${displayName} #{random_score_blank}`;
+      }
 
-    const total = score.winCount + score.loseCount;
-    if (score.winCount < 2 && total < 3) {
-      return `${displayName} #{random_score_not_enough}`;
-    }
+      const total = score.winCount + score.loseCount;
+      if (score.winCount < 2 && total < 3) {
+        return `${displayName} #{random_score_not_enough}`;
+      }
 
-    const safeTotal = total > 0 ? total : 1;
-    const winRate = Math.ceil((score.winCount / safeTotal) * 100);
-    const fleeRate = Math.ceil((score.fleeCount / safeTotal) * 100);
+      const safeTotal = total > 0 ? total : 1;
+      const winRate = Math.ceil((score.winCount / safeTotal) * 100);
+      const fleeRate = Math.ceil((score.fleeCount / safeTotal) * 100);
 
-    if (score.winCombo >= 2) {
-      return `#{random_score_part1}${displayName} #{random_score_part2} ${winRate}#{random_score_part3} ${fleeRate}#{random_score_part4_combo}${score.winCombo}#{random_score_part5_combo}`;
-    }
-    return `#{random_score_part1}${displayName} #{random_score_part2} ${winRate}#{random_score_part3} ${fleeRate}#{random_score_part4}`;
+      if (score.winCombo >= 2) {
+        return `#{random_score_part1}${displayName} #{random_score_part2} ${winRate}#{random_score_part3} ${fleeRate}#{random_score_part4_combo}${score.winCombo}#{random_score_part5_combo}`;
+      }
+      return `#{random_score_part1}${displayName} #{random_score_part2} ${winRate}#{random_score_part3} ${fleeRate}#{random_score_part4}`;
+    };
   }
 
   private get recordMatchScoresEnabled() {

@@ -328,6 +328,8 @@ export class Reconnect {
     }
   }
 
+  private hidePlayerName = this.ctx.get(() => HidePlayerNameProvider);
+
   private async sendPreReconnectInfo(
     client: Client,
     room: Room,
@@ -361,7 +363,7 @@ export class Reconnect {
       if (player) {
         await client.send(
           new YGOProStocHsPlayerEnter().fromPartial({
-            name: player.name,
+            name: this.hidePlayerNameProvider.getHidPlayerName(player, client),
             pos: player.pos,
           }),
         );
