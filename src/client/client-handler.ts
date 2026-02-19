@@ -16,11 +16,24 @@ import {
   merge,
   map,
   take,
+  startWith,
+  switchMap,
+  timer,
 } from 'rxjs';
 import { YGOProCtosDisconnect } from '../utility/ygopro-ctos-disconnect';
 
 export class ClientHandler {
+  private static readonly CLIENT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
   constructor(private ctx: Context) {}
+
+  private isPreHandshakeMsg(msg: YGOProCtosBase): boolean {
+    return [
+      YGOProCtosExternalAddress,
+      YGOProCtosPlayerInfo,
+      YGOProCtosJoinGame,
+    ].some((allowed) => (msg instanceof allowed) as boolean);
+  }
 
   async init() {
     this.ctx
@@ -63,12 +76,7 @@ export class ClientHandler {
             return next();
           }
 
-          const isPreHandshakeMsg = [
-            YGOProCtosExternalAddress,
-            YGOProCtosPlayerInfo,
-            YGOProCtosJoinGame,
-          ].some((allowed) => (msg instanceof allowed) as boolean);
-          if (client.established === isPreHandshakeMsg) {
+          if (client.established === this.isPreHandshakeMsg(msg)) {
             // disallow any messages before handshake is complete, except for the ones needed for handshake
             return undefined;
           }
@@ -133,6 +141,7 @@ export class ClientHandler {
       .then(() => {
         this.logger.debug({ client: client.name }, 'Handshake completed');
         client.established = true;
+        this.installIdleDisconnectGuard(client);
         return true;
       })
       .catch((error) => {
@@ -147,6 +156,24 @@ export class ClientHandler {
         );
         client.disconnect();
         return false;
+      });
+  }
+
+  private installIdleDisconnectGuard(client: Client) {
+    client.receive$
+      .pipe(
+        filter((msg) => !this.isPreHandshakeMsg(msg)),
+        startWith(undefined),
+        switchMap(() => timer(ClientHandler.CLIENT_IDLE_TIMEOUT_MS)),
+        take(1),
+        takeUntil(client.disconnect$),
+      )
+      .subscribe(() => {
+        this.logger.info(
+          { client: client.name || client.loggingIp(), ip: client.loggingIp() },
+          'Disconnecting idle client due to inactivity timeout',
+        );
+        client.disconnect();
       });
   }
 }
