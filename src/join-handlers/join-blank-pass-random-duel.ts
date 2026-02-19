@@ -5,7 +5,9 @@ import { RandomDuelProvider } from '../feats';
 export class JoinBlankPassRandomDuel {
   private randomDuelProvider = this.ctx.get(() => RandomDuelProvider);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       msg.pass = (msg.pass || '').trim();
       if (msg.pass || !this.randomDuelProvider.enabled) {

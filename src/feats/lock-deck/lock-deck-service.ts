@@ -20,7 +20,9 @@ class SrvproDeckBadError extends YGOProLFListError {
 }
 
 export class LockDeckService {
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.ctx.config.getBoolean('TOURNAMENT_MODE_CHECK_DECK')) {
       return;
     }

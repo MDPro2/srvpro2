@@ -42,7 +42,9 @@ export class IpResolver {
       { count: this.trustedProxies.length },
       'Trusted proxies initialized',
     );
+  }
 
+  async init() {
     this.ctx.middleware(YGOProCtosDisconnect, async (_msg, client, next) => {
       await this.releaseClientIp(client);
       return next();

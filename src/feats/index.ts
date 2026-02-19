@@ -1,4 +1,4 @@
-export * from './client-version-check';
+export * from '../pre-join/client-version-check';
 export * from './client-key-provider';
 export * from './chatgpt-service';
 export * from './block-replay';

@@ -6,16 +6,16 @@ import {
 } from 'ygopro-msg-encode';
 import { Context } from '../app';
 import { Client } from '../client';
-import { DuelStage } from './duel-stage';
-import { Room } from './room';
-import { RoomManager } from './room-manager';
 import { YGOProCtosDisconnect } from '../utility/ygopro-ctos-disconnect';
+import { Room, DuelStage, RoomManager } from '../room';
 
 export class TagSurrenderConfirmMiddleware {
   // Track per-room pending teammate-confirm surrender by player position.
   private pendingByRoom = new WeakMap<Room, Set<number>>();
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProMsgNewTurn, async (msg, client, next) => {
       const room = this.getRoom(client);
       if (room?.isTag && (msg.player & 0x2) === 0) {

@@ -58,14 +58,15 @@ export class TipsProvider extends BaseResourceProvider<TipsData> {
       }
       await this.sendRandomTip(commandContext.client, commandContext.room);
     });
-
-    this.ctx.middleware(OnRoomDuelStart, async (event, _client, next) => {
-      await this.sendRandomTipToRoom(event.room);
-      return next();
-    });
   }
 
   async init() {
+    if (this.enabled) {
+      this.ctx.middleware(OnRoomDuelStart, async (event, _client, next) => {
+        await this.sendRandomTipToRoom(event.room);
+        return next();
+      });
+    }
     await super.init();
     this.registerAutoTipTimers();
   }

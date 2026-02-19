@@ -10,7 +10,9 @@ export class ClientVersionCheck {
 
   version = this.ctx.config.getInt('YGOPRO_VERSION');
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(
       YGOProCtosJoinGame,
       async (msg, client, next) => {

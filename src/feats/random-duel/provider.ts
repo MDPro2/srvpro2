@@ -22,7 +22,7 @@ import { fillRandomString } from '../../utility/fill-random-string';
 import {
   OnClientBadwordViolation,
   OnClientWaitTimeout,
-} from '../random-duel-events';
+} from './random-duel-events';
 import { CanReconnectCheck } from '../reconnect';
 import { WaitForPlayerProvider } from '../wait-for-player-provider';
 import { ClientKeyProvider } from '../client-key-provider';
@@ -118,21 +118,11 @@ export class RandomDuelProvider {
   private blankPassModes = this.resolveBlankPassModes();
   private supportedTypes = this.resolveSupportedTypes();
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.enabled) {
       return;
-    }
-    this.registerRandomRoomModes();
-    this.waitForPlayerProvider.registerTick({
-      roomFilter: (room) => !!room.randomType,
-      raadyTimeoutMs: this.waitForPlayerReadyTimeoutMs,
-      hangTimeoutMs: this.waitForPlayerHangTimeoutMs,
-      longAgoBackoffMs: this.waitForPlayerLongAgoBackoffMs,
-    });
-    if (this.recordMatchScoresConfigured && !this.ctx.database) {
-      this.logger.warn(
-        'RANDOM_DUEL_RECORD_MATCH_SCORES is enabled but database is unavailable',
-      );
     }
 
     this.ctx.middleware(CanReconnectCheck, async (msg, _client, next) => {
@@ -206,6 +196,19 @@ export class RandomDuelProvider {
         return next();
       },
     );
+
+    this.registerRandomRoomModes();
+    this.waitForPlayerProvider.registerTick({
+      roomFilter: (room) => !!room.randomType,
+      raadyTimeoutMs: this.waitForPlayerReadyTimeoutMs,
+      hangTimeoutMs: this.waitForPlayerHangTimeoutMs,
+      longAgoBackoffMs: this.waitForPlayerLongAgoBackoffMs,
+    });
+    if (this.recordMatchScoresConfigured && !this.ctx.database) {
+      this.logger.warn(
+        'RANDOM_DUEL_RECORD_MATCH_SCORES is enabled but database is unavailable',
+      );
+    }
   }
 
   get defaultType() {

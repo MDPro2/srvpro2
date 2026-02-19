@@ -4,7 +4,10 @@ import { RoomManager } from '../room/room-manager';
 
 export class JoinRoom {
   private logger = this.ctx.createLogger(this.constructor.name);
-  constructor(private ctx: Context) {
+
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       if (!msg.pass) {
         return next();

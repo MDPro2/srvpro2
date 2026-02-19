@@ -59,7 +59,9 @@ export class Reconnect {
   private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
   private refreshFieldService = this.ctx.get(() => RefreshFieldService);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     // 检查是否启用断线重连（默认启用）
     if (!this.ctx.config.getBoolean('ENABLE_RECONNECT')) {
       return;

@@ -16,6 +16,9 @@ import { KoaService } from './services/koa-service';
 import { FileResourceService } from './file-resource';
 import { LegacyApiAuthService } from './services/legacy-api-auth-service';
 import { LegacyApiModule } from './legacy-api/legacy-api-module';
+import { TailModule } from './tail-module';
+import { PreJoinModule } from './pre-join';
+import { PluginLoader } from './plugin-loader';
 
 const core = createAppContext()
   .provide(ConfigService, {
@@ -51,8 +54,11 @@ export type ContextState = AppContextState<Context>;
 
 export const app = core
   .use(TransportModule)
+  .use(RoomModule)
   .use(FeatsModule)
   .use(LegacyApiModule)
-  .use(RoomModule)
+  .use(PreJoinModule)
+  .use(PluginLoader())
   .use(JoinHandlerModule)
+  .use(TailModule)
   .define();

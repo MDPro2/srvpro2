@@ -20,7 +20,9 @@ import {
 import { YGOProCtosDisconnect } from '../utility/ygopro-ctos-disconnect';
 
 export class ClientHandler {
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx
       .middleware(YGOProCtosExternalAddress, async (msg, client, next) => {
         if (client.ip) {

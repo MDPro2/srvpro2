@@ -10,13 +10,6 @@ export class LegacyStopService {
   private stopText?: string;
 
   constructor(private ctx: Context) {
-    this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
-      if (!this.stopText) {
-        return next();
-      }
-      return client.die(this.stopText, ChatColor.RED);
-    });
-
     this.ctx
       .get(() => LegacyApiService)
       .addApiMessageHandler('stop', 'stop', async (value) => {
@@ -26,6 +19,13 @@ export class LegacyStopService {
   }
 
   async init() {
+    this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
+      if (!this.stopText) {
+        return next();
+      }
+      return client.die(this.stopText, ChatColor.RED);
+    });
+
     const text = await this.loadStopTextFromDatabase();
     this.stopText = text;
     if (text) {

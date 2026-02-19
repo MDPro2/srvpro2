@@ -9,7 +9,9 @@ export class JoinBotlist {
   private joinWindbotAi = this.ctx.get(() => JoinWindbotAi);
   private windbotProvider = this.ctx.get(() => WindBotProvider);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.windbotProvider.enabled) {
       return;
     }

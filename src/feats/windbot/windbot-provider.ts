@@ -94,7 +94,12 @@ export class WindBotProvider {
       }
       await this.requestWindbotJoin(room, botName);
     });
+  }
 
+  async init() {
+    if (!this.enabled) {
+      return;
+    }
     this.ctx
       .middleware(OnRoomFinalize, async (event, _client, next) => {
         this.deleteRoomToken(event.room.name);
@@ -110,12 +115,6 @@ export class WindBotProvider {
         },
         true,
       );
-  }
-
-  async init() {
-    if (!this.enabled) {
-      return;
-    }
     await this.loadBotList();
   }
 

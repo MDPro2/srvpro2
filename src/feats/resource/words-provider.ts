@@ -24,18 +24,19 @@ export class WordsProvider extends BaseResourceProvider<WordsData> {
       resourceName: 'words',
       emptyData: EMPTY_WORDS_DATA,
     });
+  }
 
-    if (!this.enabled) {
-      return;
+  async init() {
+    if (this.enabled) {
+      this.ctx.middleware(OnRoomJoin, async (event, client, next) => {
+        const line = await this.getRandomWords(event.room, client);
+        if (line) {
+          await event.room.sendChat(line, ChatColor.PINK);
+        }
+        return next();
+      });
     }
-
-    this.ctx.middleware(OnRoomJoin, async (event, client, next) => {
-      const line = await this.getRandomWords(event.room, client);
-      if (line) {
-        await event.room.sendChat(line, ChatColor.PINK);
-      }
-      return next();
-    });
+    await super.init();
   }
 
   async refreshResources() {

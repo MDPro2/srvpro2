@@ -11,7 +11,9 @@ import { makeArray } from 'nfkit';
 export class RoomEventRegister {
   private logger = this.ctx.createLogger('RoomEventRegister');
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.registerRoomEvents();
   }
 

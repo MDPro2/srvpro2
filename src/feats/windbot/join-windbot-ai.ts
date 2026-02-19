@@ -15,7 +15,9 @@ export class JoinWindbotAi {
   private windbotProvider = this.ctx.get(() => WindBotProvider);
   private roomManager = this.ctx.get(() => RoomManager);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.windbotProvider.enabled) {
       return;
     }

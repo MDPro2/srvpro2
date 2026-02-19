@@ -32,7 +32,9 @@ export class RoomAutoDeathService {
             Number.isFinite(deathTime) && deathTime > 0 ? deathTime : 40,
         };
       });
+  }
 
+  async init() {
     this.ctx.middleware(OnRoomGameStart, async (event, _client, next) => {
       const scheduled = this.tryScheduleAutoDeath(
         event.room.name,

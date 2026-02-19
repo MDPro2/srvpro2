@@ -1,5 +1,5 @@
-import { Client } from '../client';
-import { Room } from '../room';
+import { Client } from '../../client';
+import { Room } from '../../room';
 
 export type RandomDuelWaitTimeoutType = 'ready' | 'hang';
 

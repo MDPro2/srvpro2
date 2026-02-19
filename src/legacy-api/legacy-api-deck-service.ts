@@ -41,8 +41,11 @@ export class LegacyApiDeckService {
 
   constructor(private ctx: Context) {
     this.registerRoutes();
-    this.registerLockDeckCheck();
     void this.ensureBackgroundsFresh();
+  }
+
+  async init() {
+    this.registerLockDeckCheck();
   }
 
   private registerRoutes() {

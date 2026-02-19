@@ -18,7 +18,9 @@ declare module '../client' {
 }
 
 export class Welcome {
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(OnRoomJoin, async (event, client, next) => {
       const room = event.room;
       await this.sendConfigWelcome(client);

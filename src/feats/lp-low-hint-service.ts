@@ -10,7 +10,9 @@ import { RoomManager } from '../room';
 export class LpLowHintService {
   private roomManager = this.ctx.get(() => RoomManager);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProMsgDamage, async (msg, client, next) => {
       await this.trySendLowLpHint(msg.player, client, '#{lp_low_opponent}');
       return next();

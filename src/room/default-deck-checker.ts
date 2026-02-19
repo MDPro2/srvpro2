@@ -3,8 +3,10 @@ import { checkDeck } from '../utility/check-deck';
 import { RoomCheckDeck } from './room-event/room-check-deck';
 
 export class DefaultDeckChecker {
-  constructor(private ctx: Context) {
-    ctx.middleware(RoomCheckDeck, (msg, client, next) => {
+  constructor(private ctx: Context) {}
+
+  async init() {
+    this.ctx.middleware(RoomCheckDeck, (msg, client, next) => {
       const { room, deck, cardReader } = msg;
       if (room.hostinfo.no_check_deck) {
         return next();

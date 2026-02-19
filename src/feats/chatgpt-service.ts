@@ -50,48 +50,50 @@ export class ChatgptService {
   private tiktokenUnavailableLogged = false;
   private tokenizerByModel = new Map<string, TiktokenEncoder>();
   private tiktokenModulePromise?: Promise<any>;
+  private middlewareRegistered = false;
 
-  constructor(private ctx: Context) {
-    if (!this.enabled) {
-      return;
-    }
-
-    this.ctx.middleware(YGOProCtosChat, async (msg, client, next) => {
-      const room = this.resolveChatRoom(client);
-      if (!room) {
-        return next();
-      }
-
-      const content = (msg.msg || '').trim();
-      if (!this.shouldRespond(client, room, content)) {
-        return next();
-      }
-
-      if (room.isRequestingChatgpt) {
-        return next();
-      }
-
-      room.isRequestingChatgpt = true;
-      void this.requestChatgptAndReply(room, client, content)
-        .catch((error) => {
-          this.logger.error(
-            {
-              roomName: room.name,
-              clientName: client.name,
-              error: (error as Error).toString(),
-            },
-            'CHATGPT ERROR',
-          );
-        })
-        .finally(() => {
-          room.isRequestingChatgpt = false;
-        });
-
-      return next();
-    });
-  }
+  constructor(private ctx: Context) {}
 
   async init() {
+    if (!this.middlewareRegistered) {
+      if (this.enabled) {
+        this.ctx.middleware(YGOProCtosChat, async (msg, client, next) => {
+          const room = this.resolveChatRoom(client);
+          if (!room) {
+            return next();
+          }
+
+          const content = (msg.msg || '').trim();
+          if (!this.shouldRespond(client, room, content)) {
+            return next();
+          }
+
+          if (room.isRequestingChatgpt) {
+            return next();
+          }
+
+          room.isRequestingChatgpt = true;
+          void this.requestChatgptAndReply(room, client, content)
+            .catch((error) => {
+              this.logger.error(
+                {
+                  roomName: room.name,
+                  clientName: client.name,
+                  error: (error as Error).toString(),
+                },
+                'CHATGPT ERROR',
+              );
+            })
+            .finally(() => {
+              room.isRequestingChatgpt = false;
+            });
+
+          return next();
+        });
+      }
+      this.middlewareRegistered = true;
+    }
+
     if (
       !this.enabled ||
       this.tiktokenUnavailable ||

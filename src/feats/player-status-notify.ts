@@ -4,7 +4,9 @@ import { OnRoomJoinObserver } from '../room/room-event/on-room-join-observer';
 import { OnRoomLeave } from '../room/room-event/on-room-leave';
 
 export class PlayerStatusNotify {
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     // 观战者加入
     this.ctx.middleware(OnRoomJoinObserver, async (event, client, next) => {
       const room = event.room;

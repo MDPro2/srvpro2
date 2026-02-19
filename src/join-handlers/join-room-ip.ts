@@ -2,7 +2,9 @@ import { ChatColor, YGOProCtosJoinGame } from 'ygopro-msg-encode';
 import { Context } from '../app';
 
 export class JoinRoomIp {
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       const pass = (msg.pass || '').trim();
       if (!pass) {

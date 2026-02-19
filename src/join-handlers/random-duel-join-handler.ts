@@ -5,7 +5,9 @@ import { RandomDuelProvider } from '../feats';
 export class RandomDuelJoinHandler {
   private randomDuelProvider = this.ctx.get(() => RandomDuelProvider);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.randomDuelProvider.enabled) {
       return;
     }

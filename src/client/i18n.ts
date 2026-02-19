@@ -8,6 +8,9 @@ export class I18nService extends I18n {
       locales: Object.keys(TRANSLATIONS),
       defaultLocale: 'en-US',
     });
+  }
+
+  async init() {
     this.middleware(I18nLookupMiddleware(TRANSLATIONS));
   }
 }

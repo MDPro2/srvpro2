@@ -10,7 +10,9 @@ export class JoinRoomlist {
   private roomManager = this.ctx.get(() => RoomManager);
   private enabled = this.ctx.config.getBoolean('ENABLE_ROOMLIST');
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       if (!this.enabled) {
         return next();

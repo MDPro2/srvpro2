@@ -13,7 +13,9 @@ declare module '../room' {
 export class RoomDeathService {
   private roomManager = this.ctx.get(() => RoomManager);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(OnRoomDuelStart, async (event, _client, next) => {
       const room = event.room;
       if (!room.death) {

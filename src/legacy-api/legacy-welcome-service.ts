@@ -9,14 +9,6 @@ export class LegacyWelcomeService {
   private logger = this.ctx.createLogger('LegacyWelcomeService');
 
   constructor(private ctx: Context) {
-    this.ctx.middleware(WelcomeConfigCheck, async (event, client, next) => {
-      const dbWelcome = await this.getWelcomeFromDatabase();
-      if (dbWelcome) {
-        event.use(dbWelcome);
-      }
-      return next();
-    });
-
     this.ctx
       .get(() => LegacyApiService)
       .addApiMessageHandler('getwelcome', 'change_settings', async () => {
@@ -27,6 +19,16 @@ export class LegacyWelcomeService {
         const welcome = await this.setWelcomeText(value);
         return ['welcome ok', welcome || ''];
       });
+  }
+
+  async init() {
+    this.ctx.middleware(WelcomeConfigCheck, async (event, client, next) => {
+      const dbWelcome = await this.getWelcomeFromDatabase();
+      if (dbWelcome) {
+        event.use(dbWelcome);
+      }
+      return next();
+    });
   }
 
   async getWelcomeText() {

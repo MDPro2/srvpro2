@@ -69,7 +69,9 @@ export class CloudReplayService {
   private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
   private menuManager = this.ctx.get(() => MenuManager);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(OnRoomWin, async (event, _client, next) => {
       await this.saveDuelRecord(event);
       return next();

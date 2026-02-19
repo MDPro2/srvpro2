@@ -6,7 +6,9 @@ export class BadwordPlayerInfoChecker {
   private logger = this.ctx.createLogger(this.constructor.name);
   private badwordProvider = this.ctx.get(() => BadwordProvider);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (this.ctx.config.getBoolean('TOURNAMENT_MODE')) {
       return;
     }

@@ -12,7 +12,9 @@ export class HidePlayerNameProvider {
   private roomManager = this.ctx.get(() => RoomManager);
   private hidePlayerNameMode = this.resolveMode();
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.enabled) {
       return;
     }

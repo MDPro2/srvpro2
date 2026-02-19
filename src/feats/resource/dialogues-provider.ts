@@ -38,15 +38,16 @@ export class DialoguesProvider extends BaseResourceProvider<DialoguesData> {
       resourceName: 'dialogues',
       emptyData: EMPTY_DIALOGUES_DATA,
     });
+  }
 
-    if (!this.enabled) {
-      return;
+  async init() {
+    if (this.enabled) {
+      this.ctx.middleware(YGOProMsgBase, async (msg, client, next) => {
+        await this.handleDialogueMessage(msg, client);
+        return next();
+      });
     }
-
-    this.ctx.middleware(YGOProMsgBase, async (msg, client, next) => {
-      await this.handleDialogueMessage(msg, client);
-      return next();
-    });
+    await super.init();
   }
 
   async refreshResources() {

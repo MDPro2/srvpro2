@@ -49,7 +49,9 @@ export class MenuManager {
   private chnroute = this.ctx.get(() => Chnroute);
   private welcome = this.ctx.get(() => Welcome);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(
       YGOProCtosBase,
       async (msg, client, next) => {

@@ -4,7 +4,9 @@ import { Context } from '../app';
 export class BlockReplay {
   private enabled = this.ctx.config.getBoolean('BLOCK_REPLAY_TO_PLAYER');
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.enabled) {
       return;
     }

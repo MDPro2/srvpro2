@@ -10,7 +10,9 @@ export class LegacyRoomIdService {
   private roomNameToRoomId = new Map<string, string>();
   private roomIdToRoomName = new Map<string, string>();
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(OnRoomCreate, async (event, client, next) => {
       this.bindRoom(event.room.name, event.room.identifier);
       return next();

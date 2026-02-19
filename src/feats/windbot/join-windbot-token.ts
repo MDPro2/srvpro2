@@ -9,7 +9,9 @@ export class JoinWindbotToken {
 
   private logger = this.ctx.createLogger(this.constructor.name);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.windbotProvider.enabled) {
       return;
     }

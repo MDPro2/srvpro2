@@ -8,6 +8,15 @@ export class LegacyBanService {
   private logger = this.ctx.createLogger('LegacyBanService');
 
   constructor(private ctx: Context) {
+    this.ctx
+      .get(() => LegacyApiService)
+      .addApiMessageHandler('ban', 'ban_user', async (value) => {
+        const result = await this.banUser(value);
+        return [result ? 'ban ok' : 'ban fail', value];
+      });
+  }
+
+  async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       if (client.isLocal || client.isInternal) {
         return next();
@@ -36,13 +45,6 @@ export class LegacyBanService {
       }
       return next();
     });
-
-    this.ctx
-      .get(() => LegacyApiService)
-      .addApiMessageHandler('ban', 'ban_user', async (value) => {
-        const result = await this.banUser(value);
-        return [result ? 'ban ok' : 'ban fail', value];
-      });
   }
 
   async banUser(name: string) {

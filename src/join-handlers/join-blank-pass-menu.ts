@@ -13,7 +13,9 @@ export class JoinBlankPassMenu {
   private enabled = this.ctx.config.getBoolean('ENABLE_MENU');
   private rootMenu = this.loadRootMenu();
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     if (!this.enabled) {
       return;
     }

@@ -99,10 +99,10 @@ export class KoishiContextService {
 
   private koishiStarted = false;
   private koishiStartPromise?: Promise<void>;
+  private chatBridgeRegistered = false;
 
   constructor(private ctx: Context) {
     this.koishi.plugin(koishiHelp);
-    this.registerChatBridge();
   }
 
   get instance() {
@@ -124,6 +124,10 @@ export class KoishiContextService {
   }
 
   async init() {
+    if (!this.chatBridgeRegistered) {
+      this.registerChatBridge();
+      this.chatBridgeRegistered = true;
+    }
     if (this.attachI18nTasks.length) {
       await Promise.all(this.attachI18nTasks);
       this.attachI18nTasks = [];

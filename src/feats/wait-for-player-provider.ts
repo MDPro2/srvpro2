@@ -20,7 +20,7 @@ import {
   Room,
   RoomManager,
 } from '../room';
-import { OnClientWaitTimeout } from './random-duel-events';
+import { OnClientWaitTimeout } from './random-duel/random-duel-events';
 
 export interface WaitForPlayerConfig {
   roomFilter: (room: Room) => boolean;
@@ -55,7 +55,9 @@ export class WaitForPlayerProvider {
   private tickRuntimes = new Map<number, WaitForPlayerTickRuntime>();
   private nextTickId = 1;
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(
       YGOProMsgResponseBase,
       async (msg, client, next) => {

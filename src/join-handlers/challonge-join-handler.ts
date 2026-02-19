@@ -8,7 +8,9 @@ export class ChallongeJoinHandler {
   private challongeService = this.ctx.get(() => ChallongeService);
   private roomManager = this.ctx.get(() => RoomManager);
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
       if (!this.challongeService.enabled) {
         return next();

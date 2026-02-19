@@ -4,7 +4,7 @@ import { Client } from '../../client';
 import { Room, RoomManager } from '../../room';
 import { escapeRegExp } from '../../utility/escape-regexp';
 import { ValueContainer } from '../../utility/value-container';
-import { OnClientBadwordViolation } from '../random-duel-events';
+import { OnClientBadwordViolation } from '../random-duel/random-duel-events';
 import { BaseResourceProvider } from './base-resource-provider';
 import { isObjectRecord } from './resource-util';
 import { BadwordsData, EMPTY_BADWORDS_DATA } from './types';
@@ -60,46 +60,49 @@ export class BadwordProvider extends BaseResourceProvider<BadwordsData> {
       resourceName: 'badwords',
       emptyData: EMPTY_BADWORDS_DATA,
     });
+  }
 
-    if (!this.enabled) {
-      return;
-    }
+  async init() {
+    if (this.enabled) {
+      this.ctx.middleware(YGOProCtosChat, async (msg, client, next) => {
+        if (client.isInternal) {
+          return next();
+        }
+        const room = client.roomName
+          ? this.roomManager.findByName(client.roomName)
+          : undefined;
+        const originalMessage = msg.msg;
+        const filtered = await this.filterText(originalMessage, room, client);
 
-    this.ctx.middleware(YGOProCtosChat, async (msg, client, next) => {
-      if (client.isInternal) {
+        if (filtered.level >= 0) {
+          await this.ctx.dispatch(
+            new OnClientBadwordViolation(
+              client,
+              room,
+              originalMessage,
+              filtered.level,
+              filtered.message !== originalMessage
+                ? filtered.message
+                : undefined,
+            ),
+            client as any,
+          );
+        }
+
+        if (filtered.blocked) {
+          await client.sendChat('#{chat_warn_level2}', ChatColor.RED);
+          return;
+        }
+
+        if (filtered.message !== msg.msg) {
+          msg.msg = filtered.message;
+          await client.sendChat('#{chat_warn_level1}', ChatColor.BABYBLUE);
+        }
+
         return next();
-      }
-      const room = client.roomName
-        ? this.roomManager.findByName(client.roomName)
-        : undefined;
-      const originalMessage = msg.msg;
-      const filtered = await this.filterText(originalMessage, room, client);
-
-      if (filtered.level >= 0) {
-        await this.ctx.dispatch(
-          new OnClientBadwordViolation(
-            client,
-            room,
-            originalMessage,
-            filtered.level,
-            filtered.message !== originalMessage ? filtered.message : undefined,
-          ),
-          client as any,
-        );
-      }
-
-      if (filtered.blocked) {
-        await client.sendChat('#{chat_warn_level2}', ChatColor.RED);
-        return;
-      }
-
-      if (filtered.message !== msg.msg) {
-        msg.msg = filtered.message;
-        await client.sendChat('#{chat_warn_level1}', ChatColor.BABYBLUE);
-      }
-
-      return next();
-    });
+      });
+    }
+    await super.init();
   }
 
   async refreshResources() {

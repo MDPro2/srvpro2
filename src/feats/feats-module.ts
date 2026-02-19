@@ -1,5 +1,4 @@
 import { createAppContext } from 'nfkit';
-import { ClientVersionCheck } from './client-version-check';
 import { Welcome } from './welcome';
 import { PlayerStatusNotify } from './player-status-notify';
 import { Reconnect, RefreshFieldService } from './reconnect';
@@ -20,6 +19,7 @@ import { BlockReplay } from './block-replay';
 import { RoomDeathService } from './room-death-service';
 import { RoomAutoDeathService } from './room-auto-death-service';
 import { ChallongeService } from './challonge-service';
+import { TagSurrenderConfirmMiddleware } from './tag-surrender-confirm-middleware';
 
 export const FeatsModule = createAppContext()
   .provide(ClientKeyProvider)
@@ -28,8 +28,7 @@ export const FeatsModule = createAppContext()
   .provide(CommandsService) // some chat commands
   .provide(Welcome)
   .provide(MenuManager)
-  .provide(ClientVersionCheck)
-  .provide(PlayerStatusNotify)
+  .provide(PlayerStatusNotify) // hint meessages when player status changes
   .provide(CloudReplayService) // persist duel records
   .provide(BlockReplay) // block replay packets for in-room players
   .provide(ChatgptService) // AI-room chat replies
@@ -38,10 +37,11 @@ export const FeatsModule = createAppContext()
   .provide(RoomAutoDeathService) // auto trigger death mode after duel start
   .provide(ChallongeService) // challonge deck lock + score sync
   .provide(LockDeckService) // srvpro-style tournament deck lock check
-  .provide(RefreshFieldService)
-  .provide(Reconnect)
+  .provide(RefreshFieldService) // utility for
+  .provide(Reconnect) // allow players to reconnect to ongoing duels without leaving the room
   .provide(WaitForPlayerProvider) // chat refresh
-  .provide(SideTimeout)
+  .provide(SideTimeout) // side timeout in duel
+  .provide(TagSurrenderConfirmMiddleware) // teammate-confirm surrender in tag duel
   .use(ResourceModule) // chat bad words
   .use(RandomDuelModule) // chat random duel block
   .use(WindbotModule)

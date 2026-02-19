@@ -69,7 +69,9 @@ export class ChallongeService {
   private challongeApi?: Challonge;
   private challongeApiFingerprint = '';
 
-  constructor(private ctx: Context) {
+  constructor(private ctx: Context) {}
+
+  async init() {
     this.registerLockDeckCheck();
     this.registerScoreHooks();
     this.registerToObserverGuard();
@@ -463,10 +465,14 @@ export class ChallongeService {
 
     if (participant0Id == null && participant1Id != null) {
       participant0Id =
-        participant1Id === match.player1_id ? match.player2_id : match.player1_id;
+        participant1Id === match.player1_id
+          ? match.player2_id
+          : match.player1_id;
     } else if (participant1Id == null && participant0Id != null) {
       participant1Id =
-        participant0Id === match.player1_id ? match.player2_id : match.player1_id;
+        participant0Id === match.player1_id
+          ? match.player2_id
+          : match.player1_id;
     }
 
     return [participant0Id, participant1Id];
