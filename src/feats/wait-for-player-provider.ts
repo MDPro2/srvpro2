@@ -339,12 +339,7 @@ export class WaitForPlayerProvider {
   }
 
   private getReadyTimeoutTarget(room: Room) {
-    const players = room.playingPlayers.filter(
-      (player) =>
-        !player.disconnected &&
-        player.roomName === room.name &&
-        player.pos < NetPlayerType.OBSERVER,
-    );
+    const players = room.playingPlayers;
     const requiredPlayerCount = room.players.length;
     if (players.length < requiredPlayerCount) {
       return undefined;
