@@ -111,7 +111,7 @@ export class Client {
 
   async send(data: YGOProStocBase, noDispatch = false) {
     if (!noDispatch) {
-      const dispatched = await this.ctx.dispatch(data, this);
+      const dispatched = await this.ctx.dispatch(data.copy(), this);
       if (!data) {
         return;
       }
