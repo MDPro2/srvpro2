@@ -55,3 +55,5 @@
 - yuzuthread（多线程执行器）: ~/test/yuzuthread
 - typed-reflector（反射器）: ~/test/koishi-related/typed-reflector
 - nfkit（工具库,事件触发器，IoC）: ~/test/nfkit
+- koishi: ~/test/koishi-related/koishi
+- satori: ~/test/koishi-related/satori

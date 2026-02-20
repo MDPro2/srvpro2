@@ -153,6 +153,14 @@ export class Client {
     if (this.isInternal) {
       return;
     }
+    if (type <= NetPlayerType.OBSERVER) {
+      return this.send(
+        new YGOProStocChat().fromPartial({
+          msg: msg,
+          player_type: type,
+        }),
+      );
+    }
     const locale = this.getLocale();
     const lines = type <= NetPlayerType.OBSERVER ? [msg] : msg.split(/\r?\n/);
     const sendTasks: Promise<unknown>[] = [];
