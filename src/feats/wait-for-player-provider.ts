@@ -25,7 +25,7 @@ import { PlayerName } from '../utility';
 
 export interface WaitForPlayerConfig {
   roomFilter: (room: Room) => boolean;
-  raadyTimeoutMs?: number;
+  readyTimeoutMs?: number;
   hangTimeoutMs?: number;
   longAgoBackoffMs: number;
 }
@@ -246,7 +246,7 @@ export class WaitForPlayerProvider {
   registerTick(options: WaitForPlayerConfig) {
     const runtimeOptions: Required<WaitForPlayerConfig> = {
       roomFilter: options.roomFilter,
-      raadyTimeoutMs: Math.max(0, options.raadyTimeoutMs || 0),
+      readyTimeoutMs: Math.max(0, options.readyTimeoutMs || 0),
       hangTimeoutMs: Math.max(0, options.hangTimeoutMs || 0),
       longAgoBackoffMs: Math.max(0, options.longAgoBackoffMs || 0),
     };
@@ -358,9 +358,8 @@ export class WaitForPlayerProvider {
     nowMs: number,
   ) {
     if (
-      runtime.options.raadyTimeoutMs <= 0 ||
-      room.duelStage !== DuelStage.Begin ||
-      this.getDisconnectedCount(room) > 0
+      runtime.options.readyTimeoutMs <= 0 ||
+      room.duelStage !== DuelStage.Begin
     ) {
       this.clearReadyState(room);
       return;
@@ -375,7 +374,7 @@ export class WaitForPlayerProvider {
     if (room.waitForPlayerReadyTargetPos !== target.pos) {
       room.waitForPlayerReadyTargetPos = target.pos;
       room.waitForPlayerReadyDeadlineMs =
-        nowMs + runtime.options.raadyTimeoutMs;
+        nowMs + runtime.options.readyTimeoutMs;
       room.waitForPlayerReadyWarnRemain = undefined;
     }
 

@@ -201,7 +201,7 @@ export class RandomDuelProvider {
     this.registerRandomRoomModes();
     this.waitForPlayerProvider.registerTick({
       roomFilter: (room) => !!room.randomType,
-      raadyTimeoutMs: this.waitForPlayerReadyTimeoutMs,
+      readyTimeoutMs: this.waitForPlayerReadyTimeoutMs,
       hangTimeoutMs: this.waitForPlayerHangTimeoutMs,
       longAgoBackoffMs: this.waitForPlayerLongAgoBackoffMs,
     });
