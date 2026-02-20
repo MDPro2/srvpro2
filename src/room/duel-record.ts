@@ -1,7 +1,13 @@
 import YGOProDeck from 'ygopro-deck-encode';
 import { YGOProYrp, ReplayHeader } from 'ygopro-yrp-encode';
 import { Room } from './room';
-import { YGOProMsgBase } from 'ygopro-msg-encode';
+import {
+  NetPlayerType,
+  YGOProMsgBase,
+  YGOProMsgResponseBase,
+  YGOProMsgWin,
+  YGOProStocGameMsg,
+} from 'ygopro-msg-encode';
 import { calculateDuelOptions } from '../utility/calculate-duel-options';
 
 // Constants from ygopro
@@ -20,6 +26,7 @@ export class DuelRecord {
   startTime = new Date();
   endTime?: Date;
   winPosition?: number;
+  winReason?: number;
   responses: Buffer[] = [];
   messages: YGOProMsgBase[] = [];
 
@@ -105,5 +112,54 @@ export class DuelRecord {
     });
 
     return yrp;
+  }
+
+  *toObserverPlayback(
+    cb: (msg: YGOProMsgBase) => YGOProMsgBase | undefined = (msg) => msg,
+  ): Generator<YGOProStocGameMsg, void, unknown> {
+    let recordedWinMsg: YGOProMsgWin | undefined;
+
+    for (const message of this.messages) {
+      if (message instanceof YGOProMsgResponseBase) {
+        continue;
+      }
+      if (message instanceof YGOProMsgWin) {
+        if (!recordedWinMsg) {
+          recordedWinMsg = message;
+        }
+        continue;
+      }
+      if (!message.getSendTargets().includes(NetPlayerType.OBSERVER)) {
+        continue;
+      }
+      const mappedMsg = cb(message);
+      if (!mappedMsg) {
+        continue;
+      }
+      yield new YGOProStocGameMsg().fromPartial({
+        msg: mappedMsg,
+      });
+    }
+
+    const winMsg = this.resolveObserverWinMsg() || recordedWinMsg;
+    if (winMsg) {
+      yield new YGOProStocGameMsg().fromPartial({
+        msg: winMsg,
+      });
+    }
+  }
+
+  private resolveObserverWinMsg() {
+    if (
+      (this.winPosition !== 0 && this.winPosition !== 1) ||
+      typeof this.winReason !== 'number'
+    ) {
+      return undefined;
+    }
+    const player = this.isSwapped ? 1 - this.winPosition : this.winPosition;
+    return new YGOProMsgWin().fromPartial({
+      player,
+      type: this.winReason,
+    });
   }
 }

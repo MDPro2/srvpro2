@@ -352,9 +352,20 @@ export class Room {
   private async sendPostWatchMessages(client: Client) {
     await client.send(new YGOProStocDuelStart());
 
+    const previousDuels = this.duelRecords.slice(0, -1);
+    if (previousDuels.length) {
+      for (const duelRecord of previousDuels) {
+        for (const message of duelRecord.toObserverPlayback((msg) =>
+          msg.observerView(),
+        )) {
+          await client.send(message);
+        }
+      }
+    }
+
     // 在 SelectHand / SelectTp 阶段发送 DeckCount
     // Siding 阶段不发 DeckCount
-    if (
+    else if (
       this.duelStage === DuelStage.Finger ||
       this.duelStage === DuelStage.FirstGo
     ) {
@@ -365,18 +376,10 @@ export class Room {
       await client.send(new YGOProStocWaitingSide());
     } else if (this.duelStage === DuelStage.Dueling) {
       // Dueling 阶段不发 DeckCount，直接发送观战消息
-      const observerMessages =
-        this.lastDuelRecord?.messages.filter(
-          (msg) =>
-            !(msg instanceof YGOProMsgResponseBase) &&
-            msg.getSendTargets().includes(NetPlayerType.OBSERVER),
-        ) || [];
-      for (const message of observerMessages) {
-        await client.send(
-          new YGOProStocGameMsg().fromPartial({
-            msg: message.observerView(),
-          }),
-        );
+      for (const message of this.lastDuelRecord?.toObserverPlayback((msg) =>
+        msg.observerView(),
+      ) || []) {
+        await client.send(message);
       }
     }
   }
@@ -545,6 +548,7 @@ export class Room {
     const lastDuelRecord = this.lastDuelRecord;
     if (lastDuelRecord && this.duelStage === DuelStage.Dueling) {
       lastDuelRecord.winPosition = duelPos;
+      lastDuelRecord.winReason = winMsg.type;
       lastDuelRecord.endTime = new Date();
     }
     if (typeof forceWinMatch === 'number') {

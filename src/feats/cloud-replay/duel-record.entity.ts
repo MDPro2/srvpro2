@@ -1,4 +1,5 @@
 import { HostInfo } from 'ygopro-msg-encode';
+import YGOProDeck from 'ygopro-deck-encode';
 import {
   Column,
   Entity,
@@ -8,7 +9,14 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 import { BaseTimeEntity, BigintTransformer } from '../../utility';
+import { DuelRecord } from '../../room';
 import { DuelRecordPlayer } from './duel-record-player.entity';
+import {
+  decodeDeckBase64,
+  decodeMessagesBase64,
+  decodeResponsesBase64,
+  decodeSeedBase64,
+} from './utility';
 
 @Entity('duel_record')
 export class DuelRecordEntity extends BaseTimeEntity {
@@ -78,4 +86,71 @@ export class DuelRecordEntity extends BaseTimeEntity {
     cascade: true,
   })
   players!: DuelRecordPlayer[];
+
+  toDuelRecord() {
+    const seatCount = this.resolveSeatCount();
+    const players = Array.from({ length: seatCount }, () => ({
+      name: '',
+      deck: new YGOProDeck(),
+    }));
+    const sortedPlayers = [...(this.players || [])].sort(
+      (a, b) => a.pos - b.pos,
+    );
+
+    for (const player of sortedPlayers) {
+      const deckBuffer = player.ingameDeckBuffer || player.currentDeckBuffer;
+      const mainc = player.ingameDeckMainc ?? player.currentDeckMainc ?? 0;
+      if (player.pos < 0 || player.pos >= seatCount) {
+        continue;
+      }
+      players[player.pos] = {
+        name: player.name,
+        deck: decodeDeckBase64(deckBuffer, mainc),
+      };
+    }
+
+    const duelRecord = new DuelRecord(
+      decodeSeedBase64(this.seed),
+      players,
+      this.resolveSwappedByIsFirst(),
+    );
+    duelRecord.startTime = this.startTime;
+    duelRecord.endTime = this.endTime;
+    duelRecord.winPosition = this.resolveWinPosition();
+    duelRecord.winReason = this.winReason;
+    duelRecord.messages = decodeMessagesBase64(this.messages).map(
+      (packet) => packet.msg,
+    );
+    duelRecord.responses = decodeResponsesBase64(this.responses);
+    return duelRecord;
+  }
+
+  private resolveWinPosition() {
+    const winnerPlayer = (this.players || []).find((player) => player.winner);
+    if (!winnerPlayer) {
+      return undefined;
+    }
+    return this.resolveDuelPosBySeat(winnerPlayer.pos);
+  }
+
+  private resolveSwappedByIsFirst() {
+    const pos0Player = (this.players || []).find((player) => player.pos === 0);
+    if (!pos0Player) {
+      return false;
+    }
+    return !pos0Player.isFirst;
+  }
+
+  private resolveDuelPosBySeat(pos: number) {
+    const teamOffsetBit = this.isTagMode() ? 1 : 0;
+    return (pos & (0x1 << teamOffsetBit)) >>> teamOffsetBit;
+  }
+
+  private isTagMode() {
+    return (this.hostInfo.mode & 0x2) !== 0;
+  }
+
+  private resolveSeatCount() {
+    return this.isTagMode() ? 4 : 2;
+  }
 }

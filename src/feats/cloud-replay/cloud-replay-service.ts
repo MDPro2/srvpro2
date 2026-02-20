@@ -1,10 +1,6 @@
-import YGOProDeck from 'ygopro-deck-encode';
 import {
   ChatColor,
   HostInfo,
-  NetPlayerType,
-  YGOProMsgResponseBase,
-  YGOProMsgWin,
   YGOProStocDuelEnd,
   YGOProStocDuelStart,
   YGOProStocGameMsg,
@@ -20,10 +16,6 @@ import { MenuEntry, MenuManager } from '../menu-manager';
 import { DuelRecordEntity } from './duel-record.entity';
 import { DuelRecordPlayer } from './duel-record-player.entity';
 import {
-  decodeDeckBase64,
-  decodeMessagesBase64,
-  decodeResponsesBase64,
-  decodeSeedBase64,
   encodeCurrentDeckBase64,
   encodeDeckBase64,
   encodeIngameDeckBase64,
@@ -395,25 +387,25 @@ export class CloudReplayService {
     viewMode: ReplayWatchViewMode = 'default',
   ) {
     try {
+      const duelRecord = replay.toDuelRecord();
       await client.sendChat(
         `#{cloud_replay_playing} R#${replay.id}`,
         ChatColor.BABYBLUE,
       );
       await client.send(this.createJoinGamePacket(replay));
-      await this.sendReplayPlayers(client, replay);
+      await this.sendReplayPlayers(client, duelRecord);
       await client.send(new YGOProStocDuelStart());
 
       const gameMessages = this.resolveReplayVisibleMessages(
-        replay.messages,
+        duelRecord,
         viewMode,
       );
       for (const msg of gameMessages) {
         await client.send(msg);
       }
-      await this.sendReplayWinMsg(client, replay);
 
       if (withYrp) {
-        await client.send(this.createReplayPacket(replay));
+        await client.send(this.createReplayPacket(replay.hostInfo, duelRecord));
       }
 
       await client.send(new YGOProStocDuelEnd());
@@ -432,84 +424,16 @@ export class CloudReplayService {
   }
 
   private resolveReplayVisibleMessages(
-    messagesBase64: string,
+    duelRecord: DuelRecord,
     viewMode: ReplayWatchViewMode = 'default',
   ) {
-    const visiblePackets = decodeMessagesBase64(messagesBase64).filter(
-      (packet) => {
-        const msg = packet.msg;
-        if (!msg) {
-          return false;
-        }
-        if (msg instanceof YGOProMsgResponseBase) {
-          return false;
-        }
-        if (msg instanceof YGOProMsgWin) {
-          return false;
-        }
-        return msg.getSendTargets().includes(NetPlayerType.OBSERVER);
-      },
+    return duelRecord.toObserverPlayback(
+      viewMode === 'default'
+        ? (msg) => msg
+        : viewMode === 'observer'
+          ? (msg) => msg.observerView()
+          : (msg) => msg.playerView(viewMode === 'player0' ? 0 : 1),
     );
-
-    if (viewMode === 'default') {
-      return visiblePackets;
-    }
-
-    return visiblePackets.map((packet) => {
-      const sourceMsg = packet.msg;
-      let mappedMsg = sourceMsg;
-
-      if (viewMode === 'player0') {
-        mappedMsg = sourceMsg.playerView(0);
-      } else if (viewMode === 'player1') {
-        mappedMsg = sourceMsg.playerView(1);
-      } else if (viewMode === 'observer') {
-        mappedMsg = sourceMsg.observerView();
-      }
-
-      return new YGOProStocGameMsg().fromPartial({
-        msg: mappedMsg,
-      });
-    });
-  }
-
-  private async sendReplayWinMsg(client: Client, replay: DuelRecordEntity) {
-    const player = this.resolveReplayWinPlayer(replay);
-    if (player == null) {
-      return;
-    }
-    await client.send(
-      new YGOProStocGameMsg().fromPartial({
-        msg: new YGOProMsgWin().fromPartial({
-          player,
-          type: replay.winReason,
-        }),
-      }),
-    );
-  }
-
-  private resolveReplayWinPlayer(replay: DuelRecordEntity) {
-    const winnerPlayer = replay.players.find((player) => player.winner);
-    if (!winnerPlayer) {
-      return 0x2; // PLAYER_NONE
-    }
-
-    const winnerDuelPos = this.resolveDuelPosBySeat(
-      winnerPlayer.pos,
-      replay.hostInfo,
-    );
-    const swapped = this.resolveReplaySwappedByIsFirst(replay);
-    return swapped ? 1 - winnerDuelPos : winnerDuelPos;
-  }
-
-  private resolveDuelPosBySeat(pos: number, hostInfo: HostInfo) {
-    const teamOffsetBit = this.isTagMode(hostInfo) ? 1 : 0;
-    return (pos & (0x1 << teamOffsetBit)) >>> teamOffsetBit;
-  }
-
-  private resolveReplaySwappedByIsFirst(replay: DuelRecordEntity) {
-    const pos0Player = replay.players.find((player) => player.pos === 0);
-    return !pos0Player?.isFirst;
   }
 
   private async downloadReplayYrp(
@@ -518,11 +442,12 @@ export class CloudReplayService {
     withJoinGame = false,
   ) {
     try {
+      const duelRecord = replay.toDuelRecord();
       if (withJoinGame) {
         await client.send(this.createJoinGamePacket(replay));
       }
       await client.send(new YGOProStocDuelStart());
-      await client.send(this.createReplayPacket(replay));
+      await client.send(this.createReplayPacket(replay.hostInfo, duelRecord));
       await client.send(new YGOProStocDuelEnd());
       client.disconnect();
     } catch (error) {
@@ -538,11 +463,11 @@ export class CloudReplayService {
     }
   }
 
-  private async sendReplayPlayers(client: Client, replay: DuelRecordEntity) {
-    const seatCount = this.resolveSeatCount(replay.hostInfo);
-    const sortedPlayers = [...replay.players].sort((a, b) => a.pos - b.pos);
+  private async sendReplayPlayers(client: Client, duelRecord: DuelRecord) {
+    const seatCount = duelRecord.players.length;
+    const sortedPlayers = [...duelRecord.players];
     for (let pos = 0; pos < seatCount; pos += 1) {
-      const player = sortedPlayers.find((entry) => entry.pos === pos);
+      const player = sortedPlayers[pos];
       await client.send(
         new YGOProStocHsPlayerEnter().fromPartial({
           pos,
@@ -567,18 +492,18 @@ export class CloudReplayService {
     };
   }
 
-  private createReplayPacket(replay: DuelRecordEntity) {
-    const duelRecord = this.restoreDuelRecord(replay);
+  private createReplayPacket(hostInfo: HostInfo, duelRecord: DuelRecord) {
     return new YGOProStocReplay().fromPartial({
       replay: duelRecord.toYrp({
-        hostinfo: replay.hostInfo as any,
-        isTag: this.isTagMode(replay.hostInfo),
+        hostinfo: hostInfo as any,
+        isTag: this.isTagMode(hostInfo),
       }),
     });
   }
 
   buildReplayYrpPayload(replay: DuelRecordEntity) {
-    return this.createReplayPacket(replay).replay.toYrp();
+    const duelRecord = replay.toDuelRecord();
+    return this.createReplayPacket(replay.hostInfo, duelRecord).replay.toYrp();
   }
 
   async getReplayYrpPayloadById(replayId: number) {
@@ -587,38 +512,6 @@ export class CloudReplayService {
       return undefined;
     }
     return this.buildReplayYrpPayload(replay);
-  }
-
-  private restoreDuelRecord(replay: DuelRecordEntity) {
-    const wasSwapped = this.resolveReplaySwappedByIsFirst(replay);
-    const seatCount = this.resolveSeatCount(replay.hostInfo);
-    const players = Array.from({ length: seatCount }, () => ({
-      name: '',
-      deck: new YGOProDeck(),
-    }));
-    const sortedPlayers = [...replay.players].sort((a, b) => a.pos - b.pos);
-
-    for (const player of sortedPlayers) {
-      const deckBuffer = player.ingameDeckBuffer || player.currentDeckBuffer;
-      const mainc = player.ingameDeckMainc ?? player.currentDeckMainc ?? 0;
-      if (player.pos < 0 || player.pos >= seatCount) {
-        continue;
-      }
-      players[player.pos] = {
-        name: player.name,
-        deck: decodeDeckBase64(deckBuffer, mainc),
-      };
-    }
-
-    const duelRecord = new DuelRecord(
-      decodeSeedBase64(replay.seed),
-      players,
-      wasSwapped,
-    );
-    duelRecord.startTime = replay.startTime;
-    duelRecord.endTime = replay.endTime;
-    duelRecord.responses = decodeResponsesBase64(replay.responses);
-    return duelRecord;
   }
 
   private async getReplayPage(client: Client): Promise<ReplayPage> {
@@ -824,10 +717,6 @@ export class CloudReplayService {
 
   private isTagMode(hostInfo: HostInfo) {
     return (hostInfo.mode & 0x2) !== 0;
-  }
-
-  private resolveSeatCount(hostInfo: HostInfo) {
-    return this.isTagMode(hostInfo) ? 4 : 2;
   }
 
   private parseDirectReplayPass(pass: string): DirectReplayPass | undefined {
