@@ -395,9 +395,7 @@ export class Reconnect {
         return false;
       }
 
-      const oldClient = room.playingPlayers.find(
-        (p) => p.name === client.name && p !== client,
-      );
+      const oldClient = room.players[client.pos];
       if (!oldClient?.startDeck) {
         return false;
       }
