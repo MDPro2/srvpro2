@@ -299,9 +299,7 @@ export class Reconnect {
       this.clearDisconnectInfo(disconnectInfo);
     } else {
       // kick reconnect
-      const oldClient = room.playingPlayers.find(
-        (p) => p.name === client.name && p !== client,
-      );
+      const oldClient = room.players[client.pos];
       if (!oldClient) {
         await client.sendChat('#{reconnect_failed}', ChatColor.RED);
         return client.disconnect();
