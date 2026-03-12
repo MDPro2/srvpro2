@@ -6,7 +6,6 @@ import {
   YGOProLFListItem,
 } from 'ygopro-lflist-encode';
 import { OcgcoreCommonConstants } from 'ygopro-msg-encode';
-import { getOriginalCodeRule } from './get-original-code-rule';
 import { readCardWithReader } from './read-card-with-reader';
 
 // Constants from ygopro
@@ -132,8 +131,8 @@ export const checkDeck = (
       }
     }
 
-    // Count cards (use alias if available, recursively resolve alias chain)
-    const countCode = getOriginalCodeRule(code, cardData.alias ?? 0, reader);
+    // Count cards (use alias if available)
+    const countCode = cardData.alias || code;
     const count = (cardCount.get(countCode) || 0) + 1;
     cardCount.set(countCode, count);
 
