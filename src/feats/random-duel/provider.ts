@@ -126,8 +126,11 @@ export class RandomDuelProvider {
       return;
     }
 
-    this.ctx.middleware(CanReconnectCheck, async (msg, _client, next) => {
-      if (msg.room.randomType && this.getDisconnectedCount(msg.room) > 1) {
+    this.ctx.middleware(CanReconnectCheck, async (msg, client, next) => {
+      if (
+        msg.room.randomType &&
+        this.getDisconnectedCount(msg.room, client) > 0
+      ) {
         return msg.no();
       }
       return next();
@@ -177,7 +180,8 @@ export class RandomDuelProvider {
       if (
         room.turnCount >= RANDOM_DUEL_EARLY_SURRENDER_TURN ||
         (room.randomType === 'M' && this.recordMatchScoresEnabled) ||
-        client.fleeFree
+        client.fleeFree ||
+        this.getDisconnectedCount(room, client) > 0
       ) {
         return next();
       }
@@ -343,8 +347,10 @@ export class RandomDuelProvider {
     return type === 'T' ? 4 : 2;
   }
 
-  private getDisconnectedCount(room: Room) {
-    return room.playingPlayers.filter((player) => !!player.disconnected).length;
+  private getDisconnectedCount(room: Room, except?: Client) {
+    return room.playingPlayers.filter(
+      (player) => !!player.disconnected && player !== except,
+    ).length;
   }
 
   private async resolveJoinState(
@@ -473,7 +479,8 @@ export class RandomDuelProvider {
       event.bySystem ||
       event.oldPos >= NetPlayerType.OBSERVER ||
       room.duelStage === DuelStage.Begin ||
-      client.fleeFree || this.getDisconnectedCount(room) >= 1
+      client.fleeFree ||
+      this.getDisconnectedCount(room, client) > 0
     ) {
       return;
     }
