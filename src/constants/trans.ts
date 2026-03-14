@@ -96,7 +96,7 @@ export const TRANSLATIONS = {
     banned_duel_tip:
       'You are banned from the random duel system for sending inappropriate messages.',
     chat_banned: 'is banned from chat.',
-    surrender_denied: "Please don't surrender in the first 2 turns.",
+    surrender_denied: "Please don't surrender in the first turn.",
     room_name: 'Room name is',
     refresh_success: 'Refresh field succeeded.',
     refresh_fail: 'Refresh field failed.',
@@ -277,7 +277,7 @@ export const TRANSLATIONS = {
     unwelcome_tip_part2: '行为，现在您可以直接离开游戏或投降，不视为强退。',
     banned_duel_tip: '您的发言存在严重不适当的内容，禁止您使用随机对战功能！',
     chat_banned: '已被禁言！',
-    surrender_denied: '为保证双方玩家的游戏体验，随机对战中3回合后才能投降。',
+    surrender_denied: '为保证双方玩家的游戏体验，随机对战中2回合后才能投降。',
     room_name: '您当前的房间名是',
     refresh_success: '刷新场面成功。',
     refresh_fail: '刷新场面失败。',
