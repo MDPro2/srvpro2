@@ -27,6 +27,7 @@ import { CanReconnectCheck } from './can-reconnect-check';
 import { ClientKeyProvider } from '../client-key-provider';
 import { RefreshFieldService } from './refresh-field-service';
 import { HidePlayerNameProvider } from '../hide-player-name-provider';
+import { ChallongeService } from '../challonge-service';
 
 interface DisconnectInfo {
   key: string;
@@ -628,6 +629,13 @@ export class Reconnect {
 
         // 名字必须匹配
         if (player.name !== newClient.name) {
+          continue;
+        }
+
+        if (
+          !this.ctx.get(() => ChallongeService).enabled &&
+          player.roompass !== newClient.roompass
+        ) {
           continue;
         }
 
