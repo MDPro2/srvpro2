@@ -10,7 +10,7 @@ before_script:
 .build-image:
   stage: build
   script:
-    - docker build --pull -t $TARGET_IMAGE .
+    - docker build --no-cache --pull -t $TARGET_IMAGE .
     - docker push $TARGET_IMAGE
 
 build-x86:
