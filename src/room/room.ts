@@ -88,7 +88,6 @@ import { DuelRecord } from './duel-record';
 import { generateSeed } from '../utility/generate-seed';
 import { OnRoomDuelStart } from './room-event/on-room-duel-start';
 import {
-  OcgcoreProcessTimeoutError,
   OcgcoreWorker,
 } from '../ocgcore-worker/ocgcore-worker';
 import { initWorker, type WorkerInstance } from 'yuzuthread';
@@ -114,7 +113,9 @@ import { RoomCurrentFieldInfo, RoomInfo } from './room-info';
 import {
   calculateOcgcoreDeck,
   KoishiFragment,
+  OcgcoreTimeoutError,
   readCardWithReader,
+  withOcgcoreTimeoutFallback,
 } from '../utility';
 
 declare module 'ygopro-msg-encode' {
@@ -579,27 +580,19 @@ export class Room {
         return;
       }
       this.disposingOcgcores.add(ocgcore);
-
-      let finished = false;
-      const timeout = setTimeout(() => {
-        if (finished) {
-          return;
-        }
-        this.logger.warn(
-          { timeout: DISPOSE_OCGCORE_TIMEOUT_MS },
-          'OCGCore dispose timed out, forcing finalize',
-        );
-        this.disposeOcgcore(ocgcore, true);
-      }, DISPOSE_OCGCORE_TIMEOUT_MS);
-
-      void ocgcore
-        .dispose()
+      void withOcgcoreTimeoutFallback(
+        ocgcore.dispose(),
+        DISPOSE_OCGCORE_TIMEOUT_MS,
+        async () => {
+          this.logger.warn(
+            { timeout: DISPOSE_OCGCORE_TIMEOUT_MS },
+            'OCGCore dispose timed out, forcing finalize',
+          );
+          this.disposeOcgcore(ocgcore, true);
+        },
+      )
         .catch((e) => {
           this.logger.warn({ error: e }, 'Error disposing ocgcore');
-        })
-        .finally(() => {
-          finished = true;
-          clearTimeout(timeout);
         });
     } catch {}
   }
@@ -1976,7 +1969,7 @@ export class Room {
         await this.routeGameMsg(handled);
       }
     } catch (e) {
-      const killOcgcore = OcgcoreProcessTimeoutError.is(e);
+      const killOcgcore = OcgcoreTimeoutError.is(e);
       this.logger.warn(
         { error: e, roomName: this.name, killOcgcore },
         'Error while advancing ocgcore',

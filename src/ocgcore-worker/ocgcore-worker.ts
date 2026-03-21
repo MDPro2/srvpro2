@@ -36,32 +36,15 @@ import {
   YGOProMsgResponseBase,
   YGOProMsgRetry,
 } from 'ygopro-msg-encode';
+import {
+  OcgcoreTimeoutError,
+  withOcgcoreQueryTimeout,
+  withOcgcoreTimeout,
+} from '../utility';
 
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 const OCGCORE_MESSAGE_REPLAY_BUFFER_SIZE = 128;
 const ADVANCE_PROCESS_TIMEOUT_MS = 1 * 60 * 1000;
-
-export class OcgcoreProcessTimeoutError extends Error {
-  readonly isOcgcoreProcessTimeoutError = true;
-
-  constructor(timeoutMs = ADVANCE_PROCESS_TIMEOUT_MS) {
-    super(`ocgcore process timed out after ${timeoutMs}ms`);
-    this.name = 'OcgcoreProcessTimeoutError';
-  }
-
-  static is(error: unknown): error is OcgcoreProcessTimeoutError {
-    if (error instanceof OcgcoreProcessTimeoutError) {
-      return true;
-    }
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-    return (
-      'isOcgcoreProcessTimeoutError' in error ||
-      (error as { name?: unknown }).name === 'OcgcoreProcessTimeoutError'
-    );
-  }
-}
 
 // Serializable types for transport (noParse mode: only send binary data)
 interface SerializableProcessResult {
@@ -296,8 +279,16 @@ export class OcgcoreWorker {
       };
     },
   )
-  async process(): Promise<OcgcoreProcessResultWithEncodeError> {
+  private async _process(): Promise<OcgcoreProcessResultWithEncodeError> {
     return this.duel.process({ noParse: true });
+  }
+
+  async process(): Promise<OcgcoreProcessResultWithEncodeError> {
+    return withOcgcoreTimeout(
+      this._process(),
+      ADVANCE_PROCESS_TIMEOUT_MS,
+      new OcgcoreTimeoutError('ocgcore process', ADVANCE_PROCESS_TIMEOUT_MS),
+    );
   }
 
   private splitProcessResult(
@@ -346,17 +337,30 @@ export class OcgcoreWorker {
       card: parseCardQuery(serialized.raw, serialized.length),
     }),
   )
-  async queryCard(
+  private async _queryCard(
     @TransportType() query: OcgcoreQueryCardParams,
   ): Promise<OcgcoreCardQueryResult> {
     return this.duel.queryCard(query, { noParse: true });
   }
 
+  async queryCard(
+    query: OcgcoreQueryCardParams,
+  ): Promise<OcgcoreCardQueryResult> {
+    return withOcgcoreQueryTimeout(this._queryCard(query), 'ocgcore queryCard');
+  }
+
   @WorkerMethod()
-  async queryFieldCount(
+  private async _queryFieldCount(
     @TransportType() query: OcgcoreQueryFieldCountParams,
   ): Promise<number> {
     return this.duel.queryFieldCount(query);
+  }
+
+  async queryFieldCount(query: OcgcoreQueryFieldCountParams): Promise<number> {
+    return withOcgcoreQueryTimeout(
+      this._queryFieldCount(query),
+      'ocgcore queryFieldCount',
+    );
   }
 
   @WorkerMethod()
@@ -376,10 +380,19 @@ export class OcgcoreWorker {
       cards: parseFieldCardQuery(serialized.raw, serialized.length),
     }),
   )
-  async queryFieldCard(
+  private async _queryFieldCard(
     @TransportType() query: OcgcoreQueryFieldCardParams,
   ): Promise<OcgcoreFieldCardQueryResult> {
     return this.duel.queryFieldCard(query, { noParse: true });
+  }
+
+  async queryFieldCard(
+    query: OcgcoreQueryFieldCardParams,
+  ): Promise<OcgcoreFieldCardQueryResult> {
+    return withOcgcoreQueryTimeout(
+      this._queryFieldCard(query),
+      'ocgcore queryFieldCard',
+    );
   }
 
   @WorkerMethod()
@@ -396,13 +409,20 @@ export class OcgcoreWorker {
       field: parseFieldInfo(serialized.raw),
     }),
   )
-  async queryFieldInfo(): Promise<OcgcoreFieldInfoResult> {
+  private async _queryFieldInfo(): Promise<OcgcoreFieldInfoResult> {
     return this.duel.queryFieldInfo({ noParse: true });
+  }
+
+  async queryFieldInfo(): Promise<OcgcoreFieldInfoResult> {
+    return withOcgcoreQueryTimeout(
+      this._queryFieldInfo(),
+      'ocgcore queryFieldInfo',
+    );
   }
 
   async *advance(): AsyncGenerator<OcgcoreProcessResultWithEncodeError> {
     while (true) {
-      const processResult = await this.processWithTimeout();
+      const processResult = await this.process();
       const processedResults = this.splitProcessResult(processResult);
 
       for (const res of processedResults) {
@@ -423,24 +443,6 @@ export class OcgcoreWorker {
         if (res.message instanceof YGOProMsgResponseBase) {
           return;
         }
-      }
-    }
-  }
-
-  private async processWithTimeout(): Promise<OcgcoreProcessResultWithEncodeError> {
-    let timeout: NodeJS.Timeout | undefined;
-    try {
-      return await Promise.race([
-        this.process(),
-        new Promise<OcgcoreProcessResultWithEncodeError>((_, reject) => {
-          timeout = setTimeout(() => {
-            reject(new OcgcoreProcessTimeoutError());
-          }, ADVANCE_PROCESS_TIMEOUT_MS);
-        }),
-      ]);
-    } finally {
-      if (timeout) {
-        clearTimeout(timeout);
       }
     }
   }

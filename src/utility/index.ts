@@ -4,4 +4,5 @@ export * from './bigint-transformer';
 export * from './calculate-ocgcore-deck';
 export * from './decorators';
 export * from './koishi-chat';
+export * from './ocgcore-timeout';
 export * from './read-card-with-reader';
