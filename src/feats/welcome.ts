@@ -3,6 +3,7 @@ import { Context } from '../app';
 import { Client } from '../client';
 import { OnRoomJoin } from '../room/room-event/on-room-join';
 import { ValueContainer } from '../utility/value-container';
+import { DuelStage } from '../room';
 
 declare module '../room' {
   interface Room {
@@ -24,6 +25,9 @@ export class Welcome {
     this.ctx.middleware(OnRoomJoin, async (event, client, next) => {
       const room = event.room;
       await this.sendConfigWelcome(client);
+      if (room.duelStage !== DuelStage.Begin) {
+        return next();
+      }
       if (room.welcome) {
         await client.sendChat(room.welcome, ChatColor.BABYBLUE);
       }
