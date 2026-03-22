@@ -11,6 +11,7 @@ export class OnRoomLeaveObserver extends RoomEvent {
     room: Room,
     public reason: RoomLeaveObserverReason,
     public bySystem = false,
+    public otherDisconnectedCount = 0,
   ) {
     super(room);
   }

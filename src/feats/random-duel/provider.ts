@@ -480,7 +480,7 @@ export class RandomDuelProvider {
       event.oldPos >= NetPlayerType.OBSERVER ||
       room.duelStage === DuelStage.Begin ||
       client.fleeFree ||
-      this.getDisconnectedCount(room, client) > 0
+      event.otherDisconnectedCount > 0
     ) {
       return;
     }

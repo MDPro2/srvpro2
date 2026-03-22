@@ -693,6 +693,7 @@ export class Room {
       return;
     }
     const oldPos = client.pos;
+    const otherDisconnectedCount = this.getOtherDisconnectedCount(client);
 
     if (wasObserver) {
       this.watchers.delete(client);
@@ -728,7 +729,10 @@ export class Room {
       }
     }
 
-    await this.ctx.dispatch(new OnRoomLeave(this), client);
+    await this.ctx.dispatch(
+      new OnRoomLeave(this, otherDisconnectedCount),
+      client,
+    );
 
     // 触发具体的离开事件
     if (wasObserver) {
@@ -737,6 +741,7 @@ export class Room {
           this,
           RoomLeaveObserverReason.Disconnect,
           bySystem,
+          otherDisconnectedCount,
         ),
         client,
       );
@@ -747,6 +752,7 @@ export class Room {
           oldPos,
           RoomLeavePlayerReason.Disconnect,
           bySystem,
+          otherDisconnectedCount,
         ),
         client,
       );
@@ -796,7 +802,13 @@ export class Room {
 
     // 触发事件
     await this.ctx.dispatch(
-      new OnRoomLeavePlayer(this, oldPos, RoomLeavePlayerReason.ToObserver),
+      new OnRoomLeavePlayer(
+        this,
+        oldPos,
+        RoomLeavePlayerReason.ToObserver,
+        false,
+        this.getOtherDisconnectedCount(client),
+      ),
       client,
     );
     await this.ctx.dispatch(new OnRoomJoinObserver(this), client);
@@ -836,7 +848,12 @@ export class Room {
 
       // 触发事件
       await this.ctx.dispatch(
-        new OnRoomLeaveObserver(this, RoomLeaveObserverReason.ToDuelist),
+        new OnRoomLeaveObserver(
+          this,
+          RoomLeaveObserverReason.ToDuelist,
+          false,
+          this.getOtherDisconnectedCount(client),
+        ),
         client,
       );
       await this.ctx.dispatch(new OnRoomJoinPlayer(this), client);
@@ -876,6 +893,8 @@ export class Room {
           this,
           oldPos,
           RoomLeavePlayerReason.SwitchPosition,
+          false,
+          this.getOtherDisconnectedCount(client),
         ),
         client,
       );
@@ -2120,5 +2139,11 @@ export class Room {
         };
       }),
     };
+  }
+
+  private getOtherDisconnectedCount(client: Client) {
+    return this.playingPlayers.filter(
+      (player) => player !== client && !!player.disconnected,
+    ).length;
   }
 }

@@ -13,6 +13,7 @@ export class OnRoomLeavePlayer extends RoomEvent {
     public oldPos: number,
     public reason: RoomLeavePlayerReason,
     public bySystem = false,
+    public otherDisconnectedCount = 0,
   ) {
     super(room);
   }
