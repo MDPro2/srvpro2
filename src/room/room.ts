@@ -1935,6 +1935,20 @@ export class Room {
     return this.duelStage === DuelStage.Dueling && !!this.ocgcore;
   }
 
+  private async handleOcgcoreDuelError(error: unknown, action: string) {
+    const killOcgcore = OcgcoreTimeoutError.is(error);
+    this.logger.warn(
+      { error, roomName: this.name, killOcgcore },
+      `Error while ${action}`,
+    );
+    const drawGame = new YGOProMsgWin().fromPartial({
+      type: 0x11,
+      player: 2,
+    });
+    await this.sendChat('#{draw_due_to_error}', ChatColor.RED);
+    return this.win(drawGame, { killOcgcore });
+  }
+
   private async advance() {
     if (!this.canAdvance()) {
       return;
@@ -1988,17 +2002,7 @@ export class Room {
         await this.routeGameMsg(handled);
       }
     } catch (e) {
-      const killOcgcore = OcgcoreTimeoutError.is(e);
-      this.logger.warn(
-        { error: e, roomName: this.name, killOcgcore },
-        'Error while advancing ocgcore',
-      );
-      const drawGame = new YGOProMsgWin().fromPartial({
-        type: 0x11,
-        player: 2,
-      });
-      await this.sendChat('#{draw_due_to_error}', ChatColor.RED);
-      return this.win(drawGame, { killOcgcore });
+      return this.handleOcgcoreDuelError(e, 'advancing ocgcore');
     }
   }
 
@@ -2071,8 +2075,7 @@ export class Room {
     try {
       await this.ocgcore.setResponse(msg.response);
     } catch (e) {
-      this.logger.error({ error: e }, 'Failed to set response in ocgcore');
-      return this.finalize();
+      return this.handleOcgcoreDuelError(e, 'setting response in ocgcore');
     }
     return this.advance();
   }

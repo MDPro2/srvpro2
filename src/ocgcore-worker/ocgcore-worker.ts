@@ -45,6 +45,7 @@ import {
 const { OcgcoreScriptConstants } = _OcgcoreConstants;
 const OCGCORE_MESSAGE_REPLAY_BUFFER_SIZE = 128;
 const ADVANCE_PROCESS_TIMEOUT_MS = 1 * 60 * 1000;
+const SET_RESPONSE_TIMEOUT_MS = 10 * 1000;
 
 // Serializable types for transport (noParse mode: only send binary data)
 interface SerializableProcessResult {
@@ -314,13 +315,32 @@ export class OcgcoreWorker {
   }
 
   @WorkerMethod()
-  async setResponseInt(@TransportType() value: number) {
+  private async _setResponseInt(@TransportType() value: number) {
     this.duel.setResponseInt(value);
   }
 
+  async setResponseInt(value: number) {
+    return withOcgcoreTimeout(
+      this._setResponseInt(value),
+      SET_RESPONSE_TIMEOUT_MS,
+      new OcgcoreTimeoutError(
+        'ocgcore setResponseInt',
+        SET_RESPONSE_TIMEOUT_MS,
+      ),
+    );
+  }
+
   @WorkerMethod()
-  async setResponse(@TransportType() response: Uint8Array | number) {
+  private async _setResponse(@TransportType() response: Uint8Array | number) {
     this.duel.setResponse(response);
+  }
+
+  async setResponse(response: Uint8Array | number) {
+    return withOcgcoreTimeout(
+      this._setResponse(response),
+      SET_RESPONSE_TIMEOUT_MS,
+      new OcgcoreTimeoutError('ocgcore setResponse', SET_RESPONSE_TIMEOUT_MS),
+    );
   }
 
   @WorkerMethod()
