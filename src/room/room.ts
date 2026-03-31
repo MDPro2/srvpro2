@@ -87,9 +87,7 @@ import { checkDeck, checkChangeSide } from '../utility/check-deck';
 import { DuelRecord } from './duel-record';
 import { generateSeed } from '../utility/generate-seed';
 import { OnRoomDuelStart } from './room-event/on-room-duel-start';
-import {
-  OcgcoreWorker,
-} from '../ocgcore-worker/ocgcore-worker';
+import { OcgcoreWorker } from '../ocgcore-worker/ocgcore-worker';
 import { initWorker, type WorkerInstance } from 'yuzuthread';
 import {
   getZoneQueryFlag,
@@ -590,10 +588,9 @@ export class Room {
           );
           this.disposeOcgcore(ocgcore, true);
         },
-      )
-        .catch((e) => {
-          this.logger.warn({ error: e }, 'Error disposing ocgcore');
-        });
+      ).catch((e) => {
+        this.logger.warn({ error: e }, 'Error disposing ocgcore');
+      });
     } catch {}
   }
 
@@ -1304,6 +1301,7 @@ export class Room {
       this.timerState.leftMs[options.timedOutPlayer] = 0;
     }
     this.responsePos = undefined;
+    this.acceptResponse = false;
   }
 
   private increaseResponseTime(
@@ -1495,6 +1493,7 @@ export class Room {
     this.phase = undefined;
     this.responsePos = undefined;
     this.lastResponseRequestMsg = undefined;
+    this.acceptResponse = false;
     this.isRetrying = false;
   }
 
@@ -1623,10 +1622,13 @@ export class Room {
     return this;
   }
 
+  private acceptResponse = false;
+
   setLastResponseRequestMsg(message: YGOProMsgResponseBase) {
     this.lastResponseRequestMsg = message;
     this.isRetrying = false;
     this.responsePos = this.getIngameDuelPosByDuelPos(message.responsePlayer());
+    this.acceptResponse = true;
     return this;
   }
 
@@ -1831,6 +1833,7 @@ export class Room {
       if (this.lastDuelRecord.responses.length > 0) {
         this.lastDuelRecord.responses.pop();
       }
+      this.acceptResponse = false;
       this.isRetrying = true;
       await this.sendWaitingToNonOperator(
         this.getIngameDuelPosByDuelPos(this.responsePos),
@@ -2053,10 +2056,12 @@ export class Room {
     if (
       this.responsePos == null ||
       client !== this.responsePlayer ||
-      !this.ocgcore // || this.timerState.awaitingConfirm
+      !this.ocgcore || // || this.timerState.awaitingConfirm
+      !this.acceptResponse
     ) {
       return;
     }
+    this.acceptResponse = false;
     const responsePos = this.responsePos;
     const responseRequestMsg = this.lastResponseRequestMsg;
     const response = Buffer.from(msg.response);
@@ -2072,7 +2077,6 @@ export class Room {
     }
     this.lastResponseRequestMsg = undefined;
     this.isRetrying = false;
-    this.responsePos = undefined;
     try {
       await this.ocgcore.setResponse(msg.response);
     } catch (e) {
