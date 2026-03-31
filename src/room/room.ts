@@ -762,13 +762,10 @@ export class Room {
     }
   }
 
-  @RoomMethod()
+  @RoomMethod({
+    allowInDuelStages: DuelStage.Begin,
+  })
   private async onToObserver(client: Client, _msg: YGOProCtosHsToObserver) {
-    // 游戏已经开始，不允许切换
-    if (this.duelStage !== DuelStage.Begin) {
-      return;
-    }
-
     // 如果已经是观战者，直接返回
     if (client.pos === NetPlayerType.OBSERVER) {
       return;
@@ -811,13 +808,10 @@ export class Room {
     await this.ctx.dispatch(new OnRoomJoinObserver(this), client);
   }
 
-  @RoomMethod()
+  @RoomMethod({
+    allowInDuelStages: DuelStage.Begin,
+  })
   private async onToDuelist(client: Client, _msg: YGOProCtosHsToDuelist) {
-    // 游戏已经开始，不允许切换
-    if (this.duelStage !== DuelStage.Begin) {
-      return;
-    }
-
     // 查找空位
     const firstEmptyPlayerSlot = this.players.findIndex((p) => !p);
     if (firstEmptyPlayerSlot < 0) {
@@ -899,13 +893,10 @@ export class Room {
     }
   }
 
-  @RoomMethod()
+  @RoomMethod({
+    allowInDuelStages: DuelStage.Begin,
+  })
   private async onKick(client: Client, msg: YGOProCtosKick) {
-    // 游戏已经开始，不允许踢人
-    if (this.duelStage !== DuelStage.Begin) {
-      return;
-    }
-
     // 只有 host 可以踢人
     if (!client.isHost) {
       return;
