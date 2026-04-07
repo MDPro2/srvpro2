@@ -62,7 +62,14 @@ export class RefreshFieldService {
       );
     }
 
-    await client.send(await this.requestField(room));
+    const field = await this.requestField(room);
+    if (!field) {
+      return;
+    }
+    await client.send(field);
+    if (!this.hasOcgcore(room)) {
+      return;
+    }
     await this.sendRefreshMessages(client, room);
 
     if (room.deckReversed) {
@@ -74,6 +81,9 @@ export class RefreshFieldService {
     }
 
     for (let igp = 0; igp < 2; ++igp) {
+      if (!this.hasOcgcore(room)) {
+        return;
+      }
       const deckQuery = await room.ocgcore.queryFieldCard({
         player: igp,
         location: OcgcoreScriptConstants.LOCATION_DECK,
@@ -103,7 +113,6 @@ export class RefreshFieldService {
         }
       }
     }
-
     await room.sendTimeLimit(1 - room.getDuelPos(client), client);
 
     if (client === room.responsePlayer) {
@@ -197,9 +206,11 @@ export class RefreshFieldService {
     }
   }
 
-  private async requestField(room: Room): Promise<YGOProStocGameMsg> {
+  private async requestField(
+    room: Room,
+  ): Promise<YGOProStocGameMsg | undefined> {
     if (!room.ocgcore) {
-      throw new Error('OCGCore not initialized');
+      return undefined;
     }
     const info = await room.ocgcore.queryFieldInfo();
     return new YGOProStocGameMsg().fromPartial({
@@ -224,12 +235,19 @@ export class RefreshFieldService {
 
     for (const location of locations) {
       for (const player of players) {
+        if (!this.hasOcgcore(room)) {
+          return;
+        }
         await room.refreshLocations(
           { player, location },
           { queryFlag, sendToClient: client, useCache: 0 },
         );
       }
     }
+  }
+
+  private hasOcgcore(room: Room) {
+    return !!room.ocgcore;
   }
 
   private findLastHintForClient(

@@ -1676,11 +1676,11 @@ export class Room {
       useCache?: number;
     } = {},
   ) {
-    if (!this.ocgcore) {
-      return;
-    }
     const locations = splitRefreshLocations(refresh.location);
     for (const location of locations) {
+      if (!this.ocgcore) {
+        return;
+      }
       const { cards } = await this.ocgcore.queryFieldCard({
         player: refresh.player,
         location,

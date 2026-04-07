@@ -307,6 +307,13 @@ export class Reconnect {
     const preReconnectDisconnectKey = client.preReconnectDisconnectKey;
     client.preReconnectDisconnectKey = undefined;
 
+    if (preReconnectDisconnectKey) {
+      const disconnectInfo = this.disconnectList.get(preReconnectDisconnectKey);
+      if (disconnectInfo) {
+        this.clearDisconnectInfo(disconnectInfo);
+      }
+    }
+
     if (!(await this.performReconnect(client, room, preReconnectRoomPos))) {
       await client.sendChat('#{reconnect_failed}', ChatColor.RED);
       return client.disconnect();
@@ -321,13 +328,6 @@ export class Reconnect {
     // 清理旧客户端
     roomPlayer.roomName = undefined;
     roomPlayer.pos = -1;
-
-    if (preReconnectDisconnectKey) {
-      const disconnectInfo = this.disconnectList.get(preReconnectDisconnectKey);
-      if (disconnectInfo) {
-        this.clearDisconnectInfo(disconnectInfo);
-      }
-    }
 
     if (reconnectType === 'kick') {
       roomPlayer
