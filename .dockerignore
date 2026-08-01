@@ -41,6 +41,7 @@ lerna-debug.log*
 Dockerfile
 .dockerignore
 /tests
+/e2e
 /ssl
 /ygopro
 /windbot

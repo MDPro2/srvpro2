@@ -1,0 +1,3 @@
+CREATE DATABASE tabulator;
+CREATE DATABASE accounts;
+CREATE DATABASE srvpro2;

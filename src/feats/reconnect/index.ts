@@ -190,10 +190,9 @@ export class Reconnect {
     let room: Room | undefined;
     let roomPos: number | undefined;
     let reconnectType: ReconnectType | undefined;
-    let disconnectInfo: DisconnectInfo | undefined;
+    const disconnectInfo = this.findDisconnectInfo(newClient);
 
     // 1. 尝试正常断线重连
-    disconnectInfo = this.findDisconnectInfo(newClient);
     if (disconnectInfo) {
       room = this.ctx
         .get(() => RoomManager)
@@ -455,7 +454,7 @@ export class Reconnect {
     }
   }
 
-  private async performReconnectSiding(newClient: Client, room: Room) {
+  private async performReconnectSiding(newClient: Client, _room: Room) {
     // Siding 阶段：更换副卡组
     await newClient.send(new YGOProStocDuelStart());
 

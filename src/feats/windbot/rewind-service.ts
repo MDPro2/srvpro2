@@ -254,7 +254,7 @@ export class RewindService {
     let turnCount = room.turnCount;
     const ingameDuelPos = room.getIngameDuelPos(client);
     const rewindMessageIndex =
-      room.lastDuelRecord?.messages.findLastIndex((item, i) => {
+      room.lastDuelRecord?.messages.findLastIndex((item) => {
         if (item instanceof YGOProMsgNewTurn && !(item.player & 0x2)) {
           --turnCount;
         }

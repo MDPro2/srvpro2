@@ -4,7 +4,6 @@ import {
   YGOProMsgBase,
   YGOProMsgNewPhase,
   YGOProMsgNewTurn,
-  YGOProMsgResponseBase,
   YGOProStocDuelEnd,
   YGOProStocDuelStart,
   YGOProStocHsPlayerEnter,
@@ -17,7 +16,6 @@ import { Context } from '../../app';
 import { Client } from '../../client';
 import {
   DuelRecord,
-  OnRoomReceiveResponse,
   OnRoomWin,
   Room,
   RoomManager,

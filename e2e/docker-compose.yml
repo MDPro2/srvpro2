@@ -1,0 +1,158 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - '127.0.0.1:${PG_HOST_PORT}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 5s
+      retries: 40
+
+  redis:
+    image: redis:alpine
+    ports:
+      - '127.0.0.1:${REDIS_HOST_PORT}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 5s
+      retries: 40
+
+  accounts:
+    build:
+      context: ../../moecube-accounts-backend
+    environment:
+      DATABASE: postgres://postgres:postgres@postgres:5432/accounts
+      TOKEN_SECRET: srvpro2-e2e-secret
+      TOKEN_EXPIRESIN: 7d
+      NO_CHANGE_USERNAME: '1'
+    ports:
+      - '127.0.0.1:${ACCOUNT_HOST_PORT}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "node -e \"fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  tabulator:
+    build:
+      context: ../../tabulator-another
+    environment:
+      host: 0.0.0.0
+      port: '3000'
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: tabulator
+      REDIS_URL: redis://redis:6379/3
+      ACCOUNT_ENDPOINT: http://accounts:3000
+      LOGGING: ''
+    ports:
+      - '127.0.0.1:${TABULATOR_HOST_PORT}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      accounts:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "node -e \"fetch('http://127.0.0.1:3000/api/tournament/0').then(()=>process.exit(0)).catch(()=>process.exit(1))\""
+      interval: 3s
+      timeout: 5s
+      retries: 50
+
+  srvpro2:
+    build:
+      context: ..
+      args:
+        NO_RESOURCE: '1'
+        USE_MAT_CACHER: '1'
+    environment:
+      HOST: 0.0.0.0
+      PORT: '7911'
+      WS_PORT: '0'
+      API_HOST: 0.0.0.0
+      API_PORT: '7922'
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: srvpro2
+      REDIS_URL: redis://redis:6379/4
+      LOG_LEVEL: debug
+      ENABLE_TIPS: '0'
+      ENABLE_WORDS: '0'
+      ENABLE_DIALOGUES: '0'
+      ENABLE_BADWORDS: '0'
+      ENABLE_WINDBOT: '0'
+      ENABLE_CHATGPT: '0'
+      ENABLE_CLOUD_REPLAY: '0'
+      ENABLE_RECOVER: '0'
+      ENABLE_RANDOM_DUEL: '1'
+      ENABLE_MENU: '0'
+      CHALLONGE_ENABLED: '${CHALLONGE_ENABLED}'
+      CHALLONGE_API_KEY: '${CHALLONGE_API_KEY}'
+      CHALLONGE_TOURNAMENT_ID: '${CHALLONGE_TOURNAMENT_ID}'
+      CHALLONGE_URL: http://tabulator:3000/api/srvpro
+      CHALLONGE_CACHE_TTL: '0'
+      TOURNAMENT_MODE: '1'
+      TOURNAMENT_MODE_CHECK_DECK: '1'
+      HOSTINFO_LFLIST: '${HOSTINFO_LFLIST}'
+      YGOPRO_PATH: ./ygopro
+    ports:
+      - '127.0.0.1:${SRVPRO_API_HOST_PORT}:7922'
+      - '127.0.0.1:${SRVPRO_TCP_HOST_PORT}:7911'
+    command:
+      - sh
+      - -c
+      - mkdir -p /usr/src/app/data && cp /e2e-fixtures/admin_user.json /usr/src/app/data/admin_user.json && npm start
+    volumes:
+      - ./fixtures/admin_user.json:/e2e-fixtures/admin_user.json:ro
+      - ../../ygopro/cards.cdb:/usr/src/app/ygopro/cards.cdb:ro
+      - ../../ygopro/lflist.conf:/usr/src/app/ygopro/lflist.conf:ro
+      - ../../ygopro/script:/usr/src/app/ygopro/script:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tabulator:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "node -e \"fetch('http://127.0.0.1:7922/api/get_decks?username=e2e&password=e2e-pass').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  windbot:
+    profiles: ['windbot']
+    build:
+      context: ../../ygopro/windbot
+      args:
+        NO_RESOURCE: '1'
+    volumes:
+      - ../../ygopro/cards.cdb:/windbot/cards.cdb:ro
+      - ./fixtures/AI_BE2025_2025_10.ydk:/windbot/Decks/AI_BE2025_2025_10.ydk:ro
+    depends_on:
+      srvpro2:
+        condition: service_healthy

@@ -1,7 +1,7 @@
 import { YGOProCtosJoinGame } from 'ygopro-msg-encode';
 import { Context } from '../app';
 import { Client } from '../client';
-import { MenuEntry, MenuManager, Welcome } from '../feats';
+import { MenuEntry, MenuManager } from '../feats';
 
 interface MenuNode {
   [key: string]: string | MenuNode;

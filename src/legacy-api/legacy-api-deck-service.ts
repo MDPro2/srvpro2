@@ -298,27 +298,24 @@ export class LegacyApiDeckService {
       return undefined;
     }
 
-    const [exact0, exact1, exact2] = getDeckNameExactCandidates(playerName);
-    const { firstPlayerRegex, secondPlayerRegex } =
-      getDeckNameRegexCandidates(playerName);
+    const exactCandidates = getDeckNameExactCandidates(playerName);
+    const regexCandidates = getDeckNameRegexCandidates(playerName);
+    const queryParameters: Record<string, string> = {};
+    const queryClauses = [
+      ...exactCandidates.map((candidate, index) => {
+        const parameter = `exact${index}`;
+        queryParameters[parameter] = candidate;
+        return `deck.name = :${parameter}`;
+      }),
+      ...regexCandidates.map((candidate, index) => {
+        const parameter = `regex${index}`;
+        queryParameters[parameter] = candidate;
+        return `deck.name ~ :${parameter}`;
+      }),
+    ];
     const rows = await repo
       .createQueryBuilder('deck')
-      .where(
-        `(
-          deck.name = :exact0 OR
-          deck.name = :exact1 OR
-          deck.name = :exact2 OR
-          deck.name ~ :firstPlayerRegex OR
-          deck.name ~ :secondPlayerRegex
-        )`,
-        {
-          exact0,
-          exact1,
-          exact2,
-          firstPlayerRegex,
-          secondPlayerRegex,
-        },
-      )
+      .where(`(${queryClauses.join(' OR ')})`, queryParameters)
       .orderBy('deck.uploadTime', 'DESC')
       .addOrderBy('deck.id', 'DESC')
       .limit(32)
@@ -343,7 +340,11 @@ export class LegacyApiDeckService {
 
   private parseUploadFiles(req: any) {
     return new Promise<Files>((resolve, reject) => {
-      const form = new IncomingForm();
+      const form = new IncomingForm({
+        encoding: 'utf-8',
+        allowEmptyFiles: true,
+        minFileSize: 0,
+      });
       form.parse(req, (err, fields, files) => {
         if (err) {
           reject(err);

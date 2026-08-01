@@ -2,22 +2,28 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getMetadataArgsStorage } from 'typeorm';
 
+export type TypeormEntityClass = (abstract new (...args: any[]) => object) & {
+  name: string;
+};
+
 type PluginEntityLogger = {
   warn: (...args: unknown[]) => void;
 };
 
 export function collectPluginTypeormEntities(
   logger?: PluginEntityLogger,
-): Function[] {
+): TypeormEntityClass[] {
   const pluginDir = path.resolve(__dirname, '..', '..', 'plugins');
   const pluginEntityFiles = collectPluginEntityFiles(pluginDir);
-  const entities = new Set<Function>();
+  const entities = new Set<TypeormEntityClass>();
 
   for (const pluginEntityFile of pluginEntityFiles) {
     const requirePath = resolveRequirePath(pluginEntityFile);
 
     let loadedModule: unknown;
     try {
+      // Runtime plugin entities are CommonJS files discovered after compilation.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       loadedModule = require(requirePath);
     } catch (error) {
       logger?.warn(
@@ -36,10 +42,10 @@ export function collectPluginTypeormEntities(
       if (typeof item !== 'function') {
         continue;
       }
-      if (!entityTargets.has(item)) {
+      if (!entityTargets.has(item as TypeormEntityClass)) {
         continue;
       }
-      entities.add(item);
+      entities.add(item as TypeormEntityClass);
     }
   }
 
@@ -82,7 +88,7 @@ function resolveRequirePath(filePath: string) {
 }
 
 function collectTypeormEntityTargets() {
-  const targets = new Set<Function>();
+  const targets = new Set<TypeormEntityClass>();
   for (const table of getMetadataArgsStorage().tables) {
     if (table.type === 'view') {
       continue;
@@ -90,7 +96,7 @@ function collectTypeormEntityTargets() {
     if (typeof table.target !== 'function') {
       continue;
     }
-    targets.add(table.target);
+    targets.add(table.target as TypeormEntityClass);
   }
   return targets;
 }

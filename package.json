@@ -28,7 +28,8 @@
     "gen:config-example": "npm run build && node dist/src/scripts/gen-config-example.js",
     "lint": "eslint --fix .",
     "start": "node dist/index.js",
-    "test": "jest --passWithNoTests"
+    "test": "jest --passWithNoTests",
+    "test:e2e": "jest --config e2e/jest-e2e.json --runInBand"
   },
   "jest": {
     "collectCoverageFrom": [
@@ -53,6 +54,7 @@
     "axios": "^1.13.5",
     "better-lock": "^3.2.0",
     "crypto-random-string": "3.3.1",
+    "formidable": "^3.5.4",
     "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
     "ipaddr.js": "^2.3.0",
@@ -80,6 +82,7 @@
     "yuzuthread": "^1.0.10"
   },
   "devDependencies": {
+    "@types/formidable": "^3.5.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
     "@types/ws": "^8.18.1",

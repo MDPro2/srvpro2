@@ -36,7 +36,7 @@ import { RoomManager } from '../room';
 const SEND_TIMEOUT_MS = 5000;
 
 export class Client {
-  protected async _send(data: Buffer): Promise<void> {
+  protected async _send(_data: Buffer): Promise<void> {
     return Promise.resolve();
   }
   protected _receive(): Observable<Buffer<ArrayBufferLike>> {

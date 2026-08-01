@@ -1,4 +1,4 @@
-import pTimeout = require('p-timeout');
+import pTimeout from 'p-timeout';
 
 export const OCGCORE_QUERY_TIMEOUT_MS = 10 * 1000;
 

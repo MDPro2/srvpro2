@@ -1,4 +1,4 @@
-import { Metadata, reflector } from './metadata';
+import { Metadata } from './metadata';
 import { DuelStage } from '../room/duel-stage';
 import { MayBeArray } from 'nfkit';
 

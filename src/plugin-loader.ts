@@ -20,7 +20,7 @@ export const PluginLoader = () => {
   });
   const pluginDir = path.resolve(__dirname, '../plugins');
   const pluginFiles = collectPluginFiles(pluginDir);
-  const providedClasses = new Set<Function>();
+  const providedClasses = new Set<unknown>();
   const loadedPluginNames = new Set<string>();
 
   for (const pluginFile of pluginFiles) {
@@ -29,6 +29,8 @@ export const PluginLoader = () => {
 
     let loadedModule: unknown;
     try {
+      // Runtime plugins are CommonJS files discovered after compilation.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       loadedModule = require(requirePath);
     } catch (error) {
       logger.warn(

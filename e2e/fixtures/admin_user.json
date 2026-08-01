@@ -1,0 +1,16 @@
+{
+  "file": "./data/admin_user.json",
+  "permission_examples": {
+    "e2e": {
+      "deck_dashboard_read": true,
+      "deck_dashboard_write": true
+    }
+  },
+  "users": {
+    "e2e": {
+      "password": "e2e-pass",
+      "enabled": true,
+      "permissions": "e2e"
+    }
+  }
+}
