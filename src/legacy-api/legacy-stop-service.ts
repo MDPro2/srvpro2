@@ -20,10 +20,11 @@ export class LegacyStopService {
 
   async init() {
     this.ctx.middleware(YGOProCtosJoinGame, async (msg, client, next) => {
-      if (!this.stopText) {
+      const stopText = await this.refreshStopTextIfStopped();
+      if (!stopText) {
         return next();
       }
-      return client.die(this.stopText, ChatColor.RED);
+      return client.die(stopText, ChatColor.RED);
     });
 
     const text = await this.loadStopTextFromDatabase();
@@ -81,6 +82,29 @@ export class LegacyStopService {
     });
     const value = (record?.value || '').trim();
     return value || undefined;
+  }
+
+  private async refreshStopTextIfStopped() {
+    if (!this.stopText) {
+      return undefined;
+    }
+
+    if (!this.ctx.database) {
+      this.logger.error(
+        'Unable to refresh stop mode because database is unavailable',
+      );
+      return this.stopText;
+    }
+
+    try {
+      this.stopText = await this.loadStopTextFromDatabase();
+    } catch (error) {
+      this.logger.error(
+        { err: error },
+        'Failed to refresh stop mode from database',
+      );
+    }
+    return this.stopText;
   }
 
   private normalizeStopText(rawValue: string | boolean | null | undefined) {
