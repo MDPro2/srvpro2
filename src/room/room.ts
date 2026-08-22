@@ -112,6 +112,7 @@ import { RoomDecideFirstgo } from './room-event/room-decide-firstgo';
 import { RoomJoinCheck } from './room-event/room-join-check';
 import { RoomShuffleDeck } from './room-event/room-shuffle-deck';
 import { RoomUseSeed } from './room-event/room-use-seed';
+import { OcgcoreInitLimiter } from './ocgcore-init-limiter';
 import cryptoRandomString from 'crypto-random-string';
 import { RoomCurrentFieldInfo, RoomInfo } from './room-info';
 import {
@@ -1569,7 +1570,16 @@ export class Room {
     const cardReader = await this.getCardReader();
     const ocgcoreWasmBinary = await this.resourceLoader.getOcgcoreWasmBinary();
 
+    const initLimiter = this.ctx.get(() => OcgcoreInitLimiter);
+    const releaseInitSlot = await initLimiter.acquire({
+      onWait: async () => {
+        await this.sendChat('#{ocgcore_init_waiting}', ChatColor.BABYBLUE);
+      },
+    });
     try {
+      if (this.finalizing) {
+        return false;
+      }
       const ocgcore = await initWorker(OcgcoreWorker, {
         seed: duelRecord.seed,
         hostinfo: this.hostinfo,
@@ -1612,6 +1622,8 @@ export class Room {
     } catch (e) {
       this.logger.error({ error: e }, 'Failed to initialize OCGCoreWorker');
       return false;
+    } finally {
+      releaseInitSlot();
     }
   }
 

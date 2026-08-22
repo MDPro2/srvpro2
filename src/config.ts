@@ -79,6 +79,8 @@ export const defaultConfig = {
   OCGCORE_DEBUG_LOG: '0',
   // OCGCore wasm file path. Format: filesystem path string. Empty means use default wasm loading.
   OCGCORE_WASM_PATH: '',
+  // Max concurrent OCGCore worker initializations. Format: integer string. Lower values reduce CPU spikes.
+  OCGCORE_INIT_CONCURRENCY: '2',
   // Welcome message sent when players join. Format: plain string.
   WELCOME: '',
   // Enable tips feature.

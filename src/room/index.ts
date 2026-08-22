@@ -37,3 +37,4 @@ export * from './default-seeder';
 export * from './room-info';
 export * from './zombie-room-cleaner';
 export * from './no-watch-guard';
+export * from './ocgcore-init-limiter';

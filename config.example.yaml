@@ -35,6 +35,7 @@ deckSideMax: 15
 deckMaxCopies: 3
 ocgcoreDebugLog: 0
 ocgcoreWasmPath: ""
+ocgcoreInitConcurrency: 2
 welcome: ""
 enableTips: 1
 tipsGet: ""

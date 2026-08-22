@@ -9,6 +9,7 @@ import { DefaultFirstgo } from './default-firstgo';
 import { DefaultSeeder } from './default-seeder';
 import { ZombieRoomCleaner } from './zombie-room-cleaner';
 import { NoWatchGuard } from './no-watch-guard';
+import { OcgcoreInitLimiter } from './ocgcore-init-limiter';
 
 export const RoomModule = createAppContext<ContextState>()
   .provide(DefaultHostInfoProvider)
@@ -18,6 +19,7 @@ export const RoomModule = createAppContext<ContextState>()
   .provide(DefaultDeckShuffler)
   .provide(DefaultFirstgo)
   .provide(DefaultSeeder)
+  .provide(OcgcoreInitLimiter)
   .provide(ZombieRoomCleaner)
   .provide(NoWatchGuard)
   .define() as AppContext;
