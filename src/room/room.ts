@@ -27,7 +27,6 @@ import {
   YGOProStocErrorMsg,
   ErrorMessageType,
   YGOProStocGameMsg,
-  YGOProStocReplay,
   YGOProStocDuelEnd,
   YGOProStocChangeSide,
   YGOProStocWaitingSide,
@@ -114,6 +113,7 @@ import { RoomShuffleDeck } from './room-event/room-shuffle-deck';
 import { RoomUseSeed } from './room-event/room-use-seed';
 import cryptoRandomString from 'crypto-random-string';
 import { RoomCurrentFieldInfo, RoomInfo } from './room-info';
+import { ReplayEncodeService } from '../replay';
 import {
   calculateOcgcoreDeck,
   KoishiFragment,
@@ -569,11 +569,10 @@ export class Room {
         `#{replay_hint_part1}${i + 1}#{replay_hint_part2}`,
         ChatColor.BABYBLUE,
       );
-      await client.send(
-        new YGOProStocReplay().fromPartial({
-          replay: duelRecord.toYrp(this),
-        }),
-      );
+      const replay = await this.ctx
+        .get(() => ReplayEncodeService)
+        .encodePacket(duelRecord, this);
+      await client.send(replay);
     }
   }
 

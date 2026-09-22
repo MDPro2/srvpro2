@@ -8,18 +8,12 @@ import {
   YGOProStocDuelStart,
   YGOProStocHsPlayerEnter,
   YGOProStocJoinGame,
-  YGOProStocReplay,
 } from 'ygopro-msg-encode';
 import BetterLock from 'better-lock';
 import type { SelectQueryBuilder } from 'typeorm';
 import { Context } from '../../app';
 import { Client } from '../../client';
-import {
-  DuelRecord,
-  OnRoomWin,
-  Room,
-  RoomManager,
-} from '../../room';
+import { DuelRecord, OnRoomWin, Room, RoomManager } from '../../room';
 import { ClientKeyProvider } from '../client-key-provider';
 import { MenuEntry, MenuManager } from '../menu-manager';
 import { DuelRecordEntity } from './duel-record.entity';
@@ -37,6 +31,7 @@ import {
   resolvePlayerScore,
   resolveStartDeckMainc,
 } from './utility';
+import { ReplayEncodeService } from '../../replay';
 
 type ReplayPage = {
   entries: DuelRecordEntity[];
@@ -107,6 +102,7 @@ export class CloudReplayService {
   private clientKeyProvider = this.ctx.get(() => ClientKeyProvider);
   private menuManager = this.ctx.get(() => MenuManager);
   private roomManager = this.ctx.get(() => RoomManager);
+  private replayEncodeService = this.ctx.get(() => ReplayEncodeService);
   private duelRecordSaveLock = new BetterLock();
 
   constructor(private ctx: Context) {}
@@ -618,7 +614,9 @@ export class CloudReplayService {
       }
 
       if (withYrp) {
-        await client.send(this.createReplayPacket(replay.hostInfo, duelRecord));
+        await client.send(
+          await this.createReplayPacket(replay.hostInfo, duelRecord),
+        );
       }
 
       await client.send(new YGOProStocDuelEnd());
@@ -660,7 +658,9 @@ export class CloudReplayService {
         await client.send(this.createJoinGamePacket(replay));
       }
       await client.send(new YGOProStocDuelStart());
-      await client.send(this.createReplayPacket(replay.hostInfo, duelRecord));
+      await client.send(
+        await this.createReplayPacket(replay.hostInfo, duelRecord),
+      );
       await client.send(new YGOProStocDuelEnd());
       client.disconnect();
     } catch (error) {
@@ -706,17 +706,18 @@ export class CloudReplayService {
   }
 
   private createReplayPacket(hostInfo: HostInfo, duelRecord: DuelRecord) {
-    return new YGOProStocReplay().fromPartial({
-      replay: duelRecord.toYrp({
-        hostinfo: hostInfo as any,
-        isTag: this.isTagMode(hostInfo),
-      }),
+    return this.replayEncodeService.encodePacket(duelRecord, {
+      hostinfo: hostInfo,
+      isTag: this.isTagMode(hostInfo),
     });
   }
 
-  buildReplayYrpPayload(replay: DuelRecordEntity) {
+  async buildReplayYrpPayload(replay: DuelRecordEntity) {
     const duelRecord = replay.toDuelRecord();
-    return this.createReplayPacket(replay.hostInfo, duelRecord).replay.toYrp();
+    return this.replayEncodeService.encodePayload(duelRecord, {
+      hostinfo: replay.hostInfo,
+      isTag: this.isTagMode(replay.hostInfo),
+    });
   }
 
   async getReplayYrpPayloadById(
@@ -729,7 +730,7 @@ export class CloudReplayService {
     if (!replay) {
       return undefined;
     }
-    return this.buildReplayYrpPayload(replay);
+    return await this.buildReplayYrpPayload(replay);
   }
 
   private async getReplayPage(client: Client): Promise<ReplayPage> {

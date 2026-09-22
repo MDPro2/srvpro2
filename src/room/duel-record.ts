@@ -1,7 +1,7 @@
 import YGOProDeck from 'ygopro-deck-encode';
 import { YGOProYrp, ReplayHeader } from 'ygopro-yrp-encode';
-import { Room } from './room';
 import {
+  HostInfo,
   NetPlayerType,
   YGOProMsgBase,
   YGOProMsgResponseBase,
@@ -17,6 +17,11 @@ const REPLAY_TAG = 0x2;
 const REPLAY_UNIFORM = 0x10;
 const REPLAY_ID_YRP2 = 0x32707279;
 const PRO_VERSION = 0x1362;
+
+export type DuelRecordReplayContext = {
+  hostinfo: HostInfo;
+  isTag: boolean;
+};
 
 export class DuelRecord {
   constructor(
@@ -63,7 +68,7 @@ export class DuelRecord {
     });
   }
 
-  toYrp(room: Pick<Room, 'hostinfo' | 'isTag'>) {
+  toYrp(room: DuelRecordReplayContext) {
     const isTag = room.isTag;
 
     // Create replay header

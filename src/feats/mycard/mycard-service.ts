@@ -31,6 +31,7 @@ import {
   decodeMycardPassword,
   resolveHostInfoFromMycardPayload,
 } from './password-codec';
+import { ReplayEncodeService } from '../../replay';
 
 type MycardUserResponse = {
   user?: {
@@ -101,6 +102,7 @@ declare module '../../room' {
 export class MycardService {
   private logger = this.ctx.createLogger(this.constructor.name);
   private arenaFreeQuitGraceTimer?: ReturnType<typeof setInterval>;
+  private replayEncodeService = this.ctx.get(() => ReplayEncodeService);
 
   constructor(private ctx: Context) {}
 
@@ -186,7 +188,7 @@ export class MycardService {
     });
 
     this.ctx.middleware(OnRoomFinalize, async (event, _client, next) => {
-      const snapshot = this.createArenaScoreSnapshot(event.room);
+      const snapshot = await this.createArenaScoreSnapshot(event.room);
       if (snapshot) {
         this.postScoreSnapshotNonBlocking(snapshot);
       }
@@ -301,10 +303,7 @@ export class MycardService {
     params: Record<string, string | number | null | undefined>,
   ) {
     void this.callMatchApi(method, path, params).catch((error) => {
-      this.logger.warn(
-        { method, path, params, error },
-        'MATCH API CALL ERROR',
-      );
+      this.logger.warn({ method, path, params, error }, 'MATCH API CALL ERROR');
     });
   }
 
@@ -757,7 +756,9 @@ export class MycardService {
     }
   }
 
-  private createArenaScoreSnapshot(room: Room): ArenaScoreSnapshot | undefined {
+  private async createArenaScoreSnapshot(
+    room: Room,
+  ): Promise<ArenaScoreSnapshot | undefined> {
     if (!room.mycardArena || !this.arenaPostScoreUrl) {
       return undefined;
     }
@@ -778,6 +779,7 @@ export class MycardService {
             this.createFallbackScorePlayer(players[0]),
             this.createFallbackScorePlayer(players[1]),
           ] as [ArenaScorePlayer, ArenaScorePlayer]);
+    const replays = await this.resolveReplays(room);
 
     if (players.length !== 2) {
       return {
@@ -787,7 +789,7 @@ export class MycardService {
         end: this.nowString(),
         firstList: this.resolveFirstList(room),
         wins: this.resolveWins(room, scorePlayers),
-        replays: this.resolveReplays(room),
+        replays,
         players: scorePlayers,
       };
     }
@@ -799,7 +801,7 @@ export class MycardService {
       end: this.nowString(),
       firstList: this.resolveFirstList(room),
       wins: this.resolveWins(room, scorePlayers),
-      replays: this.resolveReplays(room),
+      replays,
       players: scorePlayers,
     };
   }
@@ -869,13 +871,15 @@ export class MycardService {
     return wins.map((win) => win.value);
   }
 
-  private resolveReplays(room: Room) {
+  private async resolveReplays(room: Room) {
     const replays: string[] = [];
     for (const duelRecord of room.duelRecords) {
       try {
-        replays.push(
-          Buffer.from(duelRecord.toYrp(room).toYrp()).toString('base64'),
+        const payload = await this.replayEncodeService.encodePayload(
+          duelRecord,
+          room,
         );
+        replays.push(payload.toString('base64'));
       } catch (error) {
         this.logger.warn(
           { error, roomName: room.name },

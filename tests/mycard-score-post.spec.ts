@@ -1,6 +1,7 @@
 import YGOProDeck from 'ygopro-deck-encode';
 import { MycardService } from '../src/feats/mycard';
 import { DuelStage, RoomLeavePlayerReason } from '../src/room';
+import { ReplayEncodeService } from '../src/replay';
 
 function makeCtx(overrides: Record<string, string> = {}) {
   const posted: URLSearchParams[] = [];
@@ -12,6 +13,9 @@ function makeCtx(overrides: Record<string, string> = {}) {
     MYCARD_ARENA_MATCH_API_ACCESS_KEY: 'ak',
     MYCARD_ENABLED: '1',
     ...overrides,
+  };
+  const replayEncodeService = {
+    encodePayload: jest.fn(async () => Buffer.from('encoded-replay')),
   };
   return {
     posted,
@@ -37,12 +41,18 @@ function makeCtx(overrides: Record<string, string> = {}) {
         return { data: {} };
       }),
     },
-    get: () => ({
-      allRooms: () => [],
-      getHostinfo: () => ({}),
-      registerTick: jest.fn(),
-      enabled: false,
-    }),
+    replayEncodeService,
+    get: (factory: () => unknown) => {
+      if (factory() === ReplayEncodeService) {
+        return replayEncodeService;
+      }
+      return {
+        allRooms: () => [],
+        getHostinfo: () => ({}),
+        registerTick: jest.fn(),
+        enabled: false,
+      };
+    },
     middleware: jest.fn(),
   } as any;
 }
@@ -102,7 +112,7 @@ describe('MycardService score post', () => {
     room.playingPlayers[0].deck = deckA2;
     room.playingPlayers[1].deck = deckB2;
     (service as any).rememberArenaGameDecks(room);
-    const snapshot = (service as any).createArenaScoreSnapshot(room);
+    const snapshot = await (service as any).createArenaScoreSnapshot(room);
     await (service as any).postScoreSnapshot(snapshot);
 
     expect(ctx.posted).toHaveLength(1);
@@ -169,7 +179,7 @@ describe('MycardService score post', () => {
       },
       room.playingPlayers[0],
     );
-    const snapshot = (service as any).createArenaScoreSnapshot(room);
+    const snapshot = await (service as any).createArenaScoreSnapshot(room);
     await (service as any).postScoreSnapshot(snapshot);
 
     expect(ctx.posted[0].get('userscoreA')).toBe('-9');
@@ -185,7 +195,7 @@ describe('MycardService score post', () => {
       makeDuelRecord(1),
     ]);
 
-    const snapshot = (service as any).createArenaScoreSnapshot(room);
+    const snapshot = await (service as any).createArenaScoreSnapshot(room);
     await (service as any).postScoreSnapshot(snapshot);
 
     const form = ctx.posted[0];
@@ -208,7 +218,7 @@ describe('MycardService score post', () => {
       makeDuelRecord(undefined),
     ]);
 
-    const snapshot = (service as any).createArenaScoreSnapshot(room);
+    const snapshot = await (service as any).createArenaScoreSnapshot(room);
     await (service as any).postScoreSnapshot(snapshot);
 
     expect(JSON.parse(ctx.posted[0].get('wins') || '[]')).toEqual([
@@ -223,7 +233,7 @@ describe('MycardService score post', () => {
     const service = new MycardService(ctx);
     const room = makeArenaRoom([makeDuelRecord(0), makeDuelRecord(2)]);
 
-    const snapshot = (service as any).createArenaScoreSnapshot(room);
+    const snapshot = await (service as any).createArenaScoreSnapshot(room);
     await (service as any).postScoreSnapshot(snapshot);
 
     expect(JSON.parse(ctx.posted[0].get('wins') || '[]')).toEqual([
@@ -237,7 +247,7 @@ describe('MycardService score post', () => {
     const service = new MycardService(ctx);
     const room = makeArenaRoom([makeDuelRecord(undefined), makeDuelRecord(9)]);
 
-    const snapshot = (service as any).createArenaScoreSnapshot(room);
+    const snapshot = await (service as any).createArenaScoreSnapshot(room);
     await (service as any).postScoreSnapshot(snapshot);
 
     expect(ctx.posted[0].has('wins')).toBe(false);

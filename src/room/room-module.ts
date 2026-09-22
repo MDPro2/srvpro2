@@ -9,6 +9,7 @@ import { DefaultFirstgo } from './default-firstgo';
 import { DefaultSeeder } from './default-seeder';
 import { ZombieRoomCleaner } from './zombie-room-cleaner';
 import { NoWatchGuard } from './no-watch-guard';
+import { ReplayEncodeService } from '../replay';
 
 export const RoomModule = createAppContext<ContextState>()
   .provide(DefaultHostInfoProvider)
@@ -20,4 +21,5 @@ export const RoomModule = createAppContext<ContextState>()
   .provide(DefaultSeeder)
   .provide(ZombieRoomCleaner)
   .provide(NoWatchGuard)
+  .provide(ReplayEncodeService)
   .define() as AppContext;
