@@ -15,6 +15,7 @@ import {
   PlayerChangeState,
   NetPlayerType,
   YGOProStocGameMsg,
+  YGOProStocReplay,
 } from 'ygopro-msg-encode';
 import { YGOProProtoPipe } from '../utility/ygopro-proto-pipe';
 import { I18nService } from './i18n';
@@ -32,6 +33,7 @@ import {
   splitColoredMessagesByLine,
 } from '../utility';
 import { RoomManager } from '../room';
+import { summarizeReplayMessage } from '../replay';
 
 const SEND_TIMEOUT_MS = 5000;
 
@@ -115,7 +117,10 @@ export class Client {
     }
     this.disconnectSubject.next();
     this.disconnectSubject.complete();
-    this.sendQueue.onIdle().then(() => this._disconnect()).then();
+    this.sendQueue
+      .onIdle()
+      .then(() => this._disconnect())
+      .then();
     return undefined;
   }
 
@@ -130,11 +135,13 @@ export class Client {
       data = dispatched!;
     }
     const logMsg = data instanceof YGOProStocGameMsg ? data.msg : data;
+    const logPayload =
+      data instanceof YGOProStocReplay ? summarizeReplayMessage(data) : logMsg;
     this.logger.debug(
       {
         msgName: logMsg?.constructor.name,
         client: this.name || this.loggingIp(),
-        payload: JSON.stringify(logMsg),
+        payload: JSON.stringify(logPayload),
       },
       'Sending message to client',
     );

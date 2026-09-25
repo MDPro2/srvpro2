@@ -8,8 +8,15 @@ import {
 } from '../src/feats/cloud-replay';
 import { LegacyApiReplayService } from '../src/legacy-api';
 import { LegacyRoomIdService } from '../src/legacy-api/legacy-room-id-service';
-import { OnRoomWin, RoomManager } from '../src/room';
+import {
+  DefaultHostinfo,
+  DuelRecord,
+  OnRoomWin,
+  RoomManager,
+} from '../src/room';
 import { MenuManager } from '../src/feats/menu-manager';
+import { ReplayEncodeService } from '../src/replay';
+import YGOProDeck from 'ygopro-deck-encode';
 
 function makeCtx(
   options: {
@@ -26,6 +33,10 @@ function makeCtx(
   const middleware = jest.fn();
   const clientKeyProvider = {
     getClientKey: jest.fn((client: any) => `key:${client.name}`),
+  };
+  const replayEncodeService = {
+    encodePayload: jest.fn(async () => Buffer.from('encoded-replay')),
+    encodePacket: jest.fn(async () => ({ compressed: true })),
   };
   const ctx: any = {
     createLogger: () => ({
@@ -47,6 +58,7 @@ function makeCtx(
     const token = factory();
     if (token === ClientKeyProvider) return clientKeyProvider;
     if (token === MenuManager) return {};
+    if (token === ReplayEncodeService) return replayEncodeService;
     if (token === RoomManager) {
       return {
         allRooms: jest.fn(() => activeRooms),
@@ -55,7 +67,7 @@ function makeCtx(
     }
     return undefined;
   });
-  return { ctx, middleware, clientKeyProvider };
+  return { ctx, middleware, clientKeyProvider, replayEncodeService };
 }
 
 function makeLegacyReplayCtx(activeRooms: any[] = []) {
@@ -271,6 +283,41 @@ describe('cloud replay live save hooks', () => {
     expect(next).toHaveBeenCalledTimes(1);
 
     deferred.resolve();
+  });
+});
+
+describe('cloud replay worker encoding', () => {
+  test('delegates packet and raw YRP encoding to ReplayEncodeService', async () => {
+    const { ctx, replayEncodeService } = makeCtx();
+    const service = new CloudReplayService(ctx);
+    const duelRecord = new DuelRecord(
+      Array.from({ length: 32 }, () => 1),
+      [
+        { name: 'Alice', deck: new YGOProDeck({ main: [1] }) },
+        { name: 'Bob', deck: new YGOProDeck({ main: [2] }) },
+      ],
+      false,
+    );
+    duelRecord.endTime = new Date('2026-09-22T00:00:00Z');
+    const replay: any = {
+      hostInfo: { ...DefaultHostinfo },
+      toDuelRecord: jest.fn(() => duelRecord),
+    };
+
+    await expect(service.buildReplayYrpPayload(replay)).resolves.toEqual(
+      Buffer.from('encoded-replay'),
+    );
+    await expect(
+      (service as any).createReplayPacket(replay.hostInfo, duelRecord),
+    ).resolves.toEqual({ compressed: true });
+    expect(replayEncodeService.encodePayload).toHaveBeenCalledWith(duelRecord, {
+      hostinfo: replay.hostInfo,
+      isTag: false,
+    });
+    expect(replayEncodeService.encodePacket).toHaveBeenCalledWith(duelRecord, {
+      hostinfo: replay.hostInfo,
+      isTag: false,
+    });
   });
 });
 

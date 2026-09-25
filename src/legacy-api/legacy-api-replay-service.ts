@@ -81,7 +81,8 @@ export class LegacyApiReplayService {
 
       const zip = new JSZip();
       for (const replay of replays) {
-        const payload = this.cloudReplayService.buildReplayYrpPayload(replay);
+        const payload =
+          await this.cloudReplayService.buildReplayYrpPayload(replay);
         zip.file(`${replay.id}.yrp`, payload);
       }
 
